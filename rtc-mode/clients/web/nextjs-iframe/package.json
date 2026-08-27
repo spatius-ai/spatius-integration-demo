@@ -1,0 +1,28 @@
+{
+  "name": "rtc-mode-nextjs-iframe-demo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"iframe,nextjs\" -c \"cyan,magenta\" \"pnpm run dev:iframe\" \"pnpm run dev:nextjs\"",
+    "dev:nextjs": "next dev -p 3021",
+    "dev:iframe": "cd iframe-content && pnpm run dev",
+    "build": "pnpm run build:iframe && next build",
+    "build:iframe": "cd iframe-content && pnpm run build && cd .. && node scripts/copy-iframe.js",
+    "start": "next start -p 3021",
+    "lint": "next lint",
+    "install:all": "pnpm install && cd iframe-content && pnpm install",
+    "clean": "rm -rf .next public/iframe iframe-content/dist"
+  },
+  "dependencies": {
+    "next": "^16.3.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "concurrently": "^9.1.0",
+    "typescript": "^5.9.0"
+  }
+}

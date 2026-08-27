@@ -1,0 +1,33 @@
+name: avatar_backend_demo
+description: Backend Mode Flutter client demo for AvatarKit SDK.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.0.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  spatius_avatarkit: ^1.3.3
+  # The server address, kept across launches: it is what makes the
+  # server reachable, so a failed start must not lose it.
+  shared_preferences: ^2.3.2
+  # The guide images open the console they point at.
+  url_launcher: ^6.3.1
+  web_socket_channel: ^3.0.1
+  record: ^6.2.0
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/api-key-guide.png
+    - assets/livekit-guide-1.jpg
+    - assets/livekit-guide-2.jpg

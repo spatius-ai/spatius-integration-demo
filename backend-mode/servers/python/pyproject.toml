@@ -1,0 +1,36 @@
+[project]
+name = "backend-mode-server"
+version = "0.2.0"
+description = "Backend Mode server for Spatius AvatarKit: drives the avatar from pre-recorded audio or a realtime voice agent"
+requires-python = ">=3.11"
+dependencies = [
+  "spatius>=1.0.2,<2.0.0",
+  "fastapi>=0.115,<1.0",
+  "httpx>=0.28,<1.0",
+  "python-dotenv>=1.0,<2.0",
+  "uvicorn[standard]>=0.32,<1.0",
+  "websockets>=14,<16",
+  # Realtime scene. The agent runs in-process next to this server; its speech goes
+  # to the Motion Server connection this backend already owns, so no LiveKit room
+  # is involved and clients stay thin.
+  "livekit-agents>=1.0",
+  "livekit-api>=0.8",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# This is an application, not a library: without naming the one package, setuptools
+# treats every top-level directory (app/, assets/) as a candidate and refuses to guess.
+[tool.setuptools]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

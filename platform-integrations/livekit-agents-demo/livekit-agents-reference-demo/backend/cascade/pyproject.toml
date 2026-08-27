@@ -1,0 +1,17 @@
+[project]
+name = "voice-agent"
+version = "0.1.0"
+description = "LiveKit voice agent with VAD + ASR + LLM + TTS pipeline"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+    "livekit-agents>=1.5.17,<2.0.0",
+    "livekit-api>=1.1.0",
+    "livekit-plugins-silero>=1.5.8,<2.0.0",
+    "livekit-plugins-openai>=1.5.8,<2.0.0",
+    "livekit-plugins-deepgram>=1.5.8,<2.0.0",
+    "livekit-plugins-cartesia>=1.5.8,<2.0.0",
+    "python-dotenv>=1.0.0",
+    "livekit-plugins-spatius>=1.5.17,<2.0.0",
+]

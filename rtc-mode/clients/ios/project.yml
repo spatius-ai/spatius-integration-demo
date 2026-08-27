@@ -1,0 +1,73 @@
+name: AvatarDemo
+options:
+  bundleIdPrefix: ai.spatius
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+
+# Everything comes from one package, unlike the other two modes, which download
+# AvatarKit.xcframework themselves: AvatarKitRTC depends on AvatarKit and pulls it
+# in, so declaring both would embed the framework twice and fail the build with
+# "Multiple commands produce …/AvatarKit.framework".
+#
+# Agora rather than LiveKit, and not a choice: the iOS RTC SDK ships the Agora stack
+# alone. The app says so on every request — see AgentClient.createSession.
+packages:
+  AvatarKitRTC:
+    url: https://github.com/spatius-ai/avatarkit-ios-rtc.git
+    exactVersion: 1.0.0
+
+targets:
+  AvatarDemo:
+    type: application
+    platform: iOS
+    sources:
+      - AvatarDemo
+    dependencies:
+      - package: AvatarKitRTC
+        product: AvatarKitRTC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.spatius.avatarRtcDemo
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # Running on a device needs your own Apple developer team. Export
+        # DEVELOPMENT_TEAM before `xcodegen generate`, or set the team in
+        # Xcode's Signing & Capabilities.
+        DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+        CODE_SIGN_STYLE: Automatic
+        # Device only. Neither Agora nor the AvatarKit build that RTC depends on
+        # ships a simulator slice, so there is nothing to run there — this mode
+        # has to be tested on a real device.
+        EXCLUDED_ARCHS[sdk=iphonesimulator*]: arm64
+    info:
+      path: AvatarDemo/Info.plist
+      properties:
+        CFBundleDisplayName: "AvatarKit RTC"
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UILaunchScreen: {}
+        NSMicrophoneUsageDescription: "Microphone access is required to talk to the avatar."
+        # The server runs on the dev machine, so the app reaches it over the LAN
+        # rather than the internet — both of these are what let it.
+        NSLocalNetworkUsageDescription: "Used to reach the RTC Mode server running on your computer."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    # Run in Release, not Xcode's usual Debug.
+    #
+    # Rendering an avatar is the whole point of this demo, and an unoptimised build
+    # drops the frame rate far enough that the SDK looks slow — which is the first
+    # thing a reader would blame. Debug stays available from the scheme editor for
+    # anyone who wants breakpoints.
+    scheme:
+      run:
+        config: Release
+      profile:
+        config: Release
+      analyze:
+        config: Release
+      archive:
+        config: Release

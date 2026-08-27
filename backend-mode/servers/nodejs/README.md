@@ -1,0 +1,10 @@
+# Backend Mode Backend (Node.js)
+
+This repository does not provide a full Backend Mode implementation in Node.js.
+
+Reason: Backend Mode includes `ASR -> LLM -> TTS + Server SDK bridge`, and maintaining full parity across languages creates heavy duplication.
+
+Recommendation:
+
+- Use `../python` for production or full verification.
+- If Node.js is required, start from thin capabilities (token/proxy) and extend as needed.

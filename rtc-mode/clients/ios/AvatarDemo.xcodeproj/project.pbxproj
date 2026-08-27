@@ -1,0 +1,411 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0638BDFA5C6DC4E6E2E5B566 /* RoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C84244520D1E080569E31C /* RoomView.swift */; };
+		08E16DF8D1A548733A8BD3CB /* AvatarKitRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 26A7D24B84F839584C8F3ADC /* AvatarKitRTC */; };
+		08F051381F270B3CC47DF8AB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A46EE9393CA9CE8A614F7F1 /* Assets.xcassets */; };
+		208545E1DEFD247F7972FD88 /* AvatarRtcSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55C6C26FCF55C3E43F4AADE5 /* AvatarRtcSession.swift */; };
+		33BA3E7AD812D646F269A47D /* AgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F60AFC8A4A3E7D3004EDEDC /* AgentClient.swift */; };
+		429878EFE968DBE34C61AFF8 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5DBA2C3CD2BF938AB55C77 /* Config.swift */; };
+		5E9AE807524ADEABA00A8421 /* Characters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A4620F457C141CFB4C494B3 /* Characters.swift */; };
+		8B2B70BEFD7988DA02B46337 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B6541E3EADB32A5ED65DC66 /* App.swift */; };
+		A25ABD4F5D1A1A68F1F00CD4 /* ConfigCheckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A32834DB0BA5FA89C9E082 /* ConfigCheckView.swift */; };
+		FC725B664A5F07300347C832 /* AvatarStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42F826408BB9C2C51C28AB7 /* AvatarStage.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1F60AFC8A4A3E7D3004EDEDC /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
+		31A971DD94C69B234340E897 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		3A4620F457C141CFB4C494B3 /* Characters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Characters.swift; sourceTree = "<group>"; };
+		43A32834DB0BA5FA89C9E082 /* ConfigCheckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigCheckView.swift; sourceTree = "<group>"; };
+		55C6C26FCF55C3E43F4AADE5 /* AvatarRtcSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarRtcSession.swift; sourceTree = "<group>"; };
+		59C84244520D1E080569E31C /* RoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomView.swift; sourceTree = "<group>"; };
+		7A46EE9393CA9CE8A614F7F1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8B6541E3EADB32A5ED65DC66 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		A42F826408BB9C2C51C28AB7 /* AvatarStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarStage.swift; sourceTree = "<group>"; };
+		BD8250BD3CA612B0821CEC18 /* AvatarDemo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AvatarDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD5DBA2C3CD2BF938AB55C77 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		3D6254305189B339CCFF02ED /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				08E16DF8D1A548733A8BD3CB /* AvatarKitRTC in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		25DC61823D58394AB9BD5DA0 /* AvatarDemo */ = {
+			isa = PBXGroup;
+			children = (
+				8B6541E3EADB32A5ED65DC66 /* App.swift */,
+				7A46EE9393CA9CE8A614F7F1 /* Assets.xcassets */,
+				DD5DBA2C3CD2BF938AB55C77 /* Config.swift */,
+				31A971DD94C69B234340E897 /* Info.plist */,
+				5BD1C93A449D9EA8EF342DB7 /* Components */,
+				F7246B679D6A39485C29DF14 /* Data */,
+				D56F722012882575B7D495B9 /* Services */,
+				BB297E5940DDE6A14C412AEE /* Views */,
+			);
+			path = AvatarDemo;
+			sourceTree = "<group>";
+		};
+		399AEEBB3F5C2D99092FFD40 = {
+			isa = PBXGroup;
+			children = (
+				25DC61823D58394AB9BD5DA0 /* AvatarDemo */,
+				77BC3361A48A2AD0CE4146E3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5BD1C93A449D9EA8EF342DB7 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				A42F826408BB9C2C51C28AB7 /* AvatarStage.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		77BC3361A48A2AD0CE4146E3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BD8250BD3CA612B0821CEC18 /* AvatarDemo.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BB297E5940DDE6A14C412AEE /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				43A32834DB0BA5FA89C9E082 /* ConfigCheckView.swift */,
+				59C84244520D1E080569E31C /* RoomView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		D56F722012882575B7D495B9 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				1F60AFC8A4A3E7D3004EDEDC /* AgentClient.swift */,
+				55C6C26FCF55C3E43F4AADE5 /* AvatarRtcSession.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		F7246B679D6A39485C29DF14 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				3A4620F457C141CFB4C494B3 /* Characters.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		926DC502EA8996B807D26826 /* AvatarDemo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7D99DD3462972D5890DEA2DA /* Build configuration list for PBXNativeTarget "AvatarDemo" */;
+			buildPhases = (
+				068ED3E313C05EE52449B4F3 /* Sources */,
+				EBCC4199D912F801ADBEFD20 /* Resources */,
+				3D6254305189B339CCFF02ED /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AvatarDemo;
+			packageProductDependencies = (
+				26A7D24B84F839584C8F3ADC /* AvatarKitRTC */,
+			);
+			productName = AvatarDemo;
+			productReference = BD8250BD3CA612B0821CEC18 /* AvatarDemo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		876E459523A04D9AD92FE4C4 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					926DC502EA8996B807D26826 = {
+						DevelopmentTeam = 4T2SFHD6HA;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 4AFDE34E68EC64695BEBEFFB /* Build configuration list for PBXProject "AvatarDemo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 399AEEBB3F5C2D99092FFD40;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5391CAA5F19A3CC0B9EBFF37 /* XCRemoteSwiftPackageReference "avatarkit-ios-rtc" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 77BC3361A48A2AD0CE4146E3 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				926DC502EA8996B807D26826 /* AvatarDemo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EBCC4199D912F801ADBEFD20 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				08F051381F270B3CC47DF8AB /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		068ED3E313C05EE52449B4F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				33BA3E7AD812D646F269A47D /* AgentClient.swift in Sources */,
+				8B2B70BEFD7988DA02B46337 /* App.swift in Sources */,
+				208545E1DEFD247F7972FD88 /* AvatarRtcSession.swift in Sources */,
+				FC725B664A5F07300347C832 /* AvatarStage.swift in Sources */,
+				5E9AE807524ADEABA00A8421 /* Characters.swift in Sources */,
+				429878EFE968DBE34C61AFF8 /* Config.swift in Sources */,
+				A25ABD4F5D1A1A68F1F00CD4 /* ConfigCheckView.swift in Sources */,
+				0638BDFA5C6DC4E6E2E5B566 /* RoomView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0AA12ED63B3D1D6B608CB4C3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		5060715C2FB59FB5D9437CB1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4T2SFHD6HA;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				INFOPLIST_FILE = AvatarDemo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.spatius.avatarRtcDemo;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C4081507CB2EAB314231BBBA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4T2SFHD6HA;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				INFOPLIST_FILE = AvatarDemo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.spatius.avatarRtcDemo;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F6361A0AE61E19CD53D44FA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4AFDE34E68EC64695BEBEFFB /* Build configuration list for PBXProject "AvatarDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0AA12ED63B3D1D6B608CB4C3 /* Debug */,
+				F6361A0AE61E19CD53D44FA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7D99DD3462972D5890DEA2DA /* Build configuration list for PBXNativeTarget "AvatarDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C4081507CB2EAB314231BBBA /* Debug */,
+				5060715C2FB59FB5D9437CB1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		5391CAA5F19A3CC0B9EBFF37 /* XCRemoteSwiftPackageReference "avatarkit-ios-rtc" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/spatius-ai/avatarkit-ios-rtc.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		26A7D24B84F839584C8F3ADC /* AvatarKitRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5391CAA5F19A3CC0B9EBFF37 /* XCRemoteSwiftPackageReference "avatarkit-ios-rtc" */;
+			productName = AvatarKitRTC;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 876E459523A04D9AD92FE4C4 /* Project object */;
+}

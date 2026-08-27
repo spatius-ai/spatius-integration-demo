@@ -1,0 +1,1471 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* --- View transitions --- */
+.app {
+  position: relative;
+  min-height: 100vh;
+}
+
+.view {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+  /* `inset: 0` sets where the box starts, not how tall it may grow: content taller
+     than the viewport still stretches it, and since .app is the positioning parent
+     that lengthens the page. The hidden view then adds a scrollbar to a screen it
+     is not even on — visible in the realtime scene, whose config page is taller by
+     the three LiveKit fields. */
+  overflow: hidden;
+}
+
+.view.active {
+  opacity: 1;
+  pointer-events: auto;
+  position: relative;
+  /* The active view owns the screen, so it scrolls normally — the config page is
+     legitimately taller than the viewport on a short window. */
+  overflow: visible;
+}
+
+/* --- Shared --- */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px;
+  transition: all 0.2s;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--primary);
+  color: white;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+button.secondary {
+  background: var(--border);
+  color: var(--text);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: #cbd5e1;
+}
+
+button.danger {
+  background: var(--error);
+  color: white;
+}
+
+input, select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: var(--primary);
+}
+
+/* --- View 1: Mode Select --- */
+.mode-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+
+.mode-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.mode-header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.mode-header p {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.mode-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1100px;
+  width: 100%;
+}
+
+.mode-card {
+  flex: 1;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.mode-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.12);
+  transform: translateY(-2px);
+}
+
+.mode-diagram {
+  width: 100%;
+  max-width: 860px;
+  height: auto;
+  margin: 0 auto 12px;
+  display: block;
+}
+
+.mode-card h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+.mode-desc {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.mode-usecase {
+  display: inline-block;
+  background: #eef2ff;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+/* --- View 2: Configuration --- */
+.config-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.config-container {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 40px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.config-container h1 {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.config-subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.back-btn {
+  background: none;
+  color: var(--text-secondary);
+  padding: 4px 0;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.back-btn:hover {
+  color: var(--text);
+}
+
+.config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.required {
+  color: var(--error);
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field-hint a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* Config page: form + guide side by side */
+.config-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 32px;
+  max-width: none;
+  width: 100%;
+}
+
+/* One guide per credential set, stacked in the order the fields are asked for.
+   Each sizes to its own screenshots and the column scrolls, rather than every guide
+   sharing the viewport height — with LiveKit's two rows added there is more here
+   than fits, and shrinking them to fit is what made them unreadable. */
+.config-guides {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* No scroll container here: one would clip the hover-zoomed screenshot back to
+     the column. Both guides fit as they are. */
+}
+
+.config-guide {
+  flex: none;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  text-decoration: none;
+  background: var(--surface);
+}
+
+.config-guide img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top left;
+}
+
+/* The Spatius guide is one tall screenshot; cap it so it cannot push LiveKit's off
+   the first screen entirely. */
+.config-guide > img {
+  max-height: 420px;
+}
+
+/* A guide that takes more than one screenshot to follow, in the order the steps
+   happen: side by side in one row, wrapping when the column is narrower. */
+.guide-shots {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg);
+}
+
+/* Share the row evenly, capped so neither grows past what is readable. Sized in
+   flex-basis rather than a fixed width so the pair keeps fitting as the column
+   changes with the viewport, instead of wrapping a few pixels short. */
+.guide-shots img {
+  flex: 1 1 460px;
+  min-width: 0;
+  max-width: 520px;
+  height: auto;
+  object-fit: fill;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  /* Two side by side leaves the console's own labels too small to read. Hovering
+     one scales it up in place — transform rather than width, so the other stays
+     where it is instead of being pushed around. */
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transform-origin: center;
+  cursor: zoom-in;
+}
+
+.guide-shots img:hover {
+  transform: scale(1.5);
+  /* Above its neighbour and the caption, which it now overlaps. */
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+.guide-caption {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Scene picker: two mutually exclusive peers, so a segmented control rather than a
+   dropdown — both options and what they mean stay visible. */
+.scene-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.scene-toggle button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.scene-toggle button:hover {
+  border-color: var(--primary);
+}
+
+.scene-toggle button.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.scene-toggle strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* The same control, but its options carry no sub-label, so it does not need the
+   height the scene picker does. */
+.lang-toggle button {
+  align-items: center;
+  text-align: center;
+  padding: 9px 14px;
+}
+
+.scene-toggle span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Credentials that belong to one provider, set off from the fields above them. */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.group-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.group-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: -12px 0 0;
+  line-height: 1.5;
+}
+
+
+/* Guide thumbnail — used in character list */
+.guide-thumb {
+  display: block;
+  border-radius: 6px;
+  overflow: visible;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  position: relative;
+}
+
+.guide-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transform-origin: top left;
+}
+
+.guide-thumb:hover img {
+  transform: scale(3);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  z-index: 10;
+  position: relative;
+}
+
+.config-error {
+  background: #fef2f2;
+  color: var(--error);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.init-btn {
+  margin-top: 8px;
+  padding: 12px;
+  font-size: 16px;
+}
+
+/* --- View 3: Playground --- */
+.playground {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.playground-left {
+  width: 200px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  padding: 20px;
+  overflow: visible;
+  position: relative;
+  z-index: 50;
+}
+
+.playground-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playground-right {
+  width: 260px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* Character list */
+.character-list h3 {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.character-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Nothing loaded yet: every other control is inert until a character is picked,
+   which reads as a broken page rather than a first step. The pulse says where to
+   start, and stops as soon as one is chosen. */
+/* Marks the one control worth clicking while the demo cannot go anywhere else:
+   the character list before anything is loaded, then Start before there is a
+   session. Both stop as soon as they are used. */
+.needs-pick {
+  /* A solid border under the animated glow, so the outline holds its shape at
+     every point in the cycle instead of depending on the shadow alone. */
+  border: 2px solid #22c55e;
+  border-radius: var(--radius-sm);
+  animation: pick-pulse 1.6s ease-in-out infinite;
+}
+
+.character-items.needs-pick {
+  /* Padding so the ring sits off the buttons rather than tight against them;
+     the negative margin keeps the list itself where it was. */
+  padding: 8px;
+  margin: -8px;
+}
+
+/* Never fades out entirely — the dim half of the cycle still reads as a lit
+   border, so the pulse is the glow breathing rather than the ring blinking away. */
+@keyframes pick-pulse {
+  0%, 100% {
+    border-color: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3), 0 0 22px rgba(34, 197, 94, 0.75);
+  }
+  50% {
+    border-color: #4ade80;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.16), 0 0 8px rgba(34, 197, 94, 0.3);
+  }
+}
+
+/* Anyone who has asked not to see motion still gets the hint, just held still. */
+@media (prefers-reduced-motion: reduce) {
+  .needs-pick {
+    animation: none;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3), 0 0 22px rgba(34, 197, 94, 0.75);
+  }
+}
+
+.character-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 14px;
+}
+
+.character-item:hover:not(:disabled) {
+  background: #eef2ff;
+}
+
+.character-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.character-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-left: auto;
+}
+
+.character-progress {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Add custom character */
+.add-btn {
+  border: 1px dashed var(--border);
+  background: transparent;
+}
+
+.add-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: #eef2ff;
+}
+
+.add-avatar {
+  background: var(--border) !important;
+  color: var(--text-secondary) !important;
+  font-size: 18px;
+}
+
+.custom-id-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.custom-id-input input {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.custom-id-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.custom-id-actions button {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px;
+}
+
+/* Guide image in character list — expands to the right */
+.list-guide {
+  margin-top: 16px;
+  width: 100%;
+  border-radius: 6px;
+}
+
+.list-guide img {
+  object-fit: contain;
+  transform-origin: top left;
+}
+
+.list-guide:hover img {
+  transform: scale(5);
+  z-index: 1000;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Center header */
+.center-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.multi-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.multi-toggle input {
+  width: auto;
+}
+
+.avatar-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Avatar tabs */
+.avatar-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.avatar-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.avatar-tab.active {
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.tab-close {
+  background: none;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+.tab-close:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+/* PLACEHOLDER_REMAINING_CSS */
+
+/* Avatar canvas */
+/* Wraps the canvas so the playback controls can sit over it. The canvas keeps its
+   own layout; this only provides the positioning context and inherits the flex
+   sizing the canvas used to have. */
+.canvas-stage {
+  flex: 1;
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+
+.avatar-canvas {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  background: #0a0a0a;
+  position: relative;
+}
+
+/* Playback controls, in the bottom corners of the avatar: interrupt on the left,
+   pause/resume on the right. Absent entirely while idle. */
+.stage-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  /* Only the buttons take clicks; the rest of the strip stays out of the way of
+     the canvas beneath it. */
+  pointer-events: none;
+}
+
+.stage-btn {
+  pointer-events: auto;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  /* Colour carries the meaning, so the button is the colour rather than a tinted
+     pane over the render — the ring is what keeps it readable against a light
+     avatar or a dark background alike. */
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.22),
+    0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+
+.stage-btn:active {
+  transform: scale(0.94);
+}
+
+/* Big enough to read at a glance: these are the only controls over the avatar,
+   and the icon is the whole label. */
+.stage-btn svg {
+  width: 34px;
+  height: 34px;
+  fill: currentColor;
+}
+
+/* Stopping and pausing both take something away, so both are red — interrupt the
+   stronger of the two, since it ends the turn rather than holding it. */
+.stage-btn-interrupt {
+  background: #dc2626;
+}
+
+.stage-btn-interrupt:hover {
+  background: #b91c1c;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.32),
+    0 6px 20px rgba(0, 0, 0, 0.42);
+}
+
+.stage-btn-pause {
+  background: #ef4444;
+}
+
+.stage-btn-pause:hover {
+  background: #dc2626;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.32),
+    0 6px 20px rgba(0, 0, 0, 0.42);
+}
+
+/* Resume is the one that starts something, so green. */
+.stage-btn-resume {
+  background: #16a34a;
+}
+
+.stage-btn-resume:hover {
+  background: #15803d;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.32),
+    0 6px 20px rgba(0, 0, 0, 0.42);
+}
+
+.avatar-canvas.grid-1 { grid-template-columns: 1fr; }
+.avatar-canvas.grid-2 { grid-template-columns: 1fr 1fr; }
+.avatar-canvas.grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+.canvas-cell {
+  position: relative;
+  overflow: hidden;
+  background: #111;
+}
+
+.canvas-cell.active-cell {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.canvas-container {
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 16px;
+  background: #111;
+}
+
+.canvas-loading, .canvas-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  font-size: 14px;
+}
+
+.canvas-loading { color: var(--text-muted); }
+.canvas-error { color: var(--error); background: rgba(0,0,0,0.7); }
+
+/* PLACEHOLDER_CONTROLS_CSS */
+
+/* Control panel */
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-panel h3 {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  /* The containing block for the tooltips, so they span the bar rather than
+     hanging off a "?" near the panel's edge and getting clipped. */
+  position: relative;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  /* Not a containing block: the tooltip anchors to the bar, not the row. */
+  position: static;
+}
+
+.status-label {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.status-value { font-weight: 500; text-align: right; }
+.status-value.connected { color: var(--success); }
+.status-value.connecting { color: var(--warning); }
+.status-value.failed { color: var(--error); }
+/* Registered but nothing reported yet, which is not the same as a zero. */
+.status-value.status-idle { color: var(--text-muted); font-weight: 400; }
+.error-text { color: var(--error); word-break: break-word; font-size: 12px; }
+
+/* The "?" beside each row: which callback feeds it, and what it is for. */
+.status-help {
+  /* Deliberately not `relative`: the tooltip anchors to the status bar so it
+     cannot overflow the panel. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.5;
+  cursor: help;
+}
+
+.status-help:hover,
+.status-help:focus-visible {
+  opacity: 1;
+  color: var(--primary);
+  outline: none;
+}
+
+/* Below the row rather than above it, and pulled left to line up with the panel:
+   two ancestors clip — the panel scrolls and .playground is overflow:hidden — so
+   the tooltip has to open into the panel's own space rather than out of it. */
+/* Pinned to the status bar's own box rather than hung off the "?": the panel
+   scrolls, and `overflow: auto` clips horizontally as well as vertically, so a
+   tooltip wider than the gap beside the marker gets cut off on whichever side it
+   opens towards. Anchoring to the bar keeps it inside the panel by construction.
+
+   The bar is the containing block via its own `position: relative`. */
+.status-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  text-align: left;
+  cursor: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.status-help:hover .status-tip,
+.status-help:focus-visible .status-tip {
+  display: flex;
+}
+
+.status-tip code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #7dd3fc;
+  word-break: break-all;
+}
+
+.panel-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.full-width { width: 100%; }
+
+.audio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audio-list h4 {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audio-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  line-height: 1;
+  cursor: help;
+  opacity: 0.7;
+}
+
+.audio-hint:hover {
+  opacity: 1;
+}
+
+/* --- Realtime scene: one microphone in place of the clip list --- */
+
+.realtime-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.realtime-panel h4 {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Lit while a reply is playing, so the panel says something is happening even
+   when the avatar is off screen. */
+.speaking-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: speaking-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+  50% { opacity: 0.25; }
+}
+
+.mic-btn {
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.mic-btn svg {
+  width: 38px;
+  height: 38px;
+  fill: currentColor;
+}
+
+.mic-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.mic-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.mic-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Recording: red, with a halo that keeps going so it is obvious the mic is live
+   even when nobody is talking. */
+.mic-btn.on {
+  background: var(--error);
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+  animation: mic-live 1.8s ease-out infinite;
+}
+
+.mic-btn.on:hover {
+  background: #dc2626;
+}
+
+@keyframes mic-live {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  70% { box-shadow: 0 0 0 18px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-btn.on { animation: none; }
+  .speaking-dot { animation: none; }
+}
+
+.mic-state {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.realtime-text {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.realtime-text input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.realtime-text button {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+.transcript {
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.transcript p {
+  margin: 0 0 6px;
+}
+
+.transcript p:last-child {
+  margin-bottom: 0;
+}
+
+.transcript strong {
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 5px;
+}
+
+.transcript .assistant strong {
+  color: var(--primary);
+}
+
+.realtime-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.realtime-hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* PLACEHOLDER_FINAL_CSS */
+
+.audio-btn {
+  text-align: left;
+  font-size: 13px;
+  /* Pin the height: while one clip plays every button swaps its label, and a
+     text-driven height change reflows the panel — which stutters the canvas. */
+  /* Fixed height + single line: labels differ in length and swap to an
+     ellipsis while playing, and any text-driven height change reflows the
+     panel — which stutters the canvas mid-playback. */
+  height: 34px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.host-text-form {
+  display: flex;
+  gap: 8px;
+}
+
+.host-text-input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.host-text-input:focus {
+  border-color: var(--primary);
+}
+
+.host-text-input:disabled {
+  opacity: 0.5;
+}
+
+.host-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.host-hint a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.host-hint a:hover {
+  text-decoration: underline;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-row button {
+  flex: 1;
+  font-size: 13px;
+  padding: 8px;
+}
+
+/* Cell badge & close */
+.cell-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  background: rgba(99, 102, 241, 0.85);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 2;
+}
+
+/* PLACEHOLDER_SLOT_CSS */
+
+.cell-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  z-index: 2;
+  padding: 0;
+}
+
+.cell-close:hover {
+  background: var(--error);
+}
+
+/* Loading overlay in canvas cell */
+.cell-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 5;
+  gap: 12px;
+}
+
+.cell-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.cell-progress-text {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Slot selector */
+.slot-selector h4 {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slot-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 13px;
+}
+
+.slot-btn.active {
+  background: #eef2ff;
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.slot-btn:hover:not(.active) {
+  background: #f1f5f9;
+}
+
+.slot-index {
+  width: 20px;
+  height: 20px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.slot-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Floating notices ─────────────────────────────────────────────── */
+/* SDK errors and guidance surfaced outside the developer console. */
+.toast-stack {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: max-content;
+  max-width: min(32rem, calc(100vw - 2.5rem));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #fff;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast-error { background: #b4232b; }
+.toast-warning { background: #9a6412; }
+
+.toast-text { flex: 1; word-break: break-word; }
+
+.toast-close {
+  flex: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.toast-close:hover { opacity: 1; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-0.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* `hidden` loses to any explicit display, and .field / .field-group both set
+   `display: flex` — so an element hidden by the view logic stayed on screen. */
+[hidden] {
+  display: none !important;
+}

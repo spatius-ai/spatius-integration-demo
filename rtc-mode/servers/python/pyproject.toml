@@ -1,0 +1,26 @@
+[project]
+name = "rtc-mode-server"
+version = "0.1.0"
+description = "RTC Mode server for Spatius AvatarKit: issues room credentials and dispatches the agent"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+  "flask>=3.0.0",
+  "flask-cors>=4.0.0",
+  "python-dotenv>=1.0.0",
+  # TRANSPORT=livekit: the agent worker, and the avatar that joins the room with it.
+  "livekit-agents>=1.0",
+  "livekit-plugins-spatius>=0.1",
+  "livekit-api>=0.8",
+  # TRANSPORT=agora: ConvoAI is driven over REST. Its tokens are signed locally by
+  # the vendored agora_token package, so there is no Agora SDK to install.
+  "requests>=2.31",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# An application, not a library: without this setuptools tries to guess which
+# top-level directories are packages and refuses when there is more than one.
+[tool.setuptools]
+py-modules = ["server", "agent", "agora"]

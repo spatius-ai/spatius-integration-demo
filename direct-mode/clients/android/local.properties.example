@@ -1,0 +1,14 @@
+# These values only prefill the configuration screen on first launch —
+# everything can also be typed into the app and is remembered from then on.
+
+# Get Spatius App ID:
+# https://app.spatius.ai/apps
+SPATIUS_APP_ID=your_spatius_app_id
+
+# Get Spatius Avatar ID (test avatar):
+# https://app.spatius.ai/avatars/library
+SPATIUS_AVATAR_ID=41c62a7c-993c-4b6b-b6d3-549ce3c8be00
+
+# Spatius region: `auto` picks the closest serving region at initialization.
+# Region guide: https://docs.spatius.ai/api-reference/regions
+SPATIUS_REGION=auto

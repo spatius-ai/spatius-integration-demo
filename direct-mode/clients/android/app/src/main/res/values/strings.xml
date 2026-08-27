@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AvatarKit Direct Mode Demo</string>
+    <string name="title_activity_avatar">AvatarActivity</string>
+</resources>

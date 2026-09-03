@@ -385,10 +385,10 @@ packages:
     dependency: "direct main"
     description:
       name: spatius_avatarkit
-      sha256: ac6a55297e78cfc41d0765260d74f8dcf06bca139dad05297188c92de4cf185c
+      sha256: "83f9b6fe38f8c771815929601ac9596f7780c0918032e6c7c1afd9cefe2a964f"
       url: "https://pub.dev"
     source: hosted
-    version: "1.3.4"
+    version: "1.3.6"
   stack_trace:
     dependency: transitive
     description:

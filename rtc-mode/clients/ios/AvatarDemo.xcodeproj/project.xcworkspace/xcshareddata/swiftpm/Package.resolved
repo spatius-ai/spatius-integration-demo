@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/spatius-ai/avatarkit-ios-release.git",
       "state" : {
-        "revision" : "63f6c6ba45f995d5d20b5c8cfce6d0f1422b3488",
-        "version" : "1.3.3"
+        "revision" : "7b9ba87cbcbe2103469793f99101703efc5ed061",
+        "version" : "1.3.4"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/spatius-ai/avatarkit-ios-rtc.git",
       "state" : {
-        "revision" : "4e6c188b8f5096b84a29f63a78af23cb4b120523",
-        "version" : "1.0.0"
+        "revision" : "f4548dffdec3f9a248a3193dfbf87320e33e4d0a",
+        "version" : "1.0.1"
       }
     },
     {

@@ -61,7 +61,7 @@ dependencies {
     //
     // Agora rather than LiveKit, and not a choice: this is the only stack the Android
     // RTC SDK speaks. The app says so on every request — see AgentClient.createSession.
-    implementation("ai.spatius:avatarkit-rtc:1.0.0")
+    implementation("ai.spatius:avatarkit-rtc:1.0.1")
     implementation("io.agora.rtc:full-sdk:4.6.2")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

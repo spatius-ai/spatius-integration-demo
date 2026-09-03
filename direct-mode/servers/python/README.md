@@ -120,6 +120,6 @@ putting it on a public network, or keep it on your LAN.
 
 ## References
 
-- [Direct Mode guide](https://docs.spatius.ai/direct-mode/overview)
+- [Direct Mode guide](https://docs.spatius.ai/direct-mode/client)
 - [Session token guide](https://docs.spatius.ai/api-reference/auth)
 - [Regions & endpoints](https://docs.spatius.ai/api-reference/regions)

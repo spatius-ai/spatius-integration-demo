@@ -108,7 +108,7 @@ backend-mode/
 
 ## References
 
-- [AvatarKit Backend Mode Guide](https://docs.spatius.ai/backend-mode/overview)
+- [AvatarKit Backend Mode Guide](https://docs.spatius.ai/backend-mode/server-sdk)
 - [Get API Keys](https://app.spatius.ai/apps)
 - [Test Avatars](https://app.spatius.ai/avatars/library)
 - [Regions & Endpoints](https://docs.spatius.ai/api-reference/regions)

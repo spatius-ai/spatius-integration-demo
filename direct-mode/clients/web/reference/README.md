@@ -68,5 +68,6 @@ bundled so the demo runs with nothing but an App ID and an API Key.
 
 ## References
 
-- [Web SDK API](https://docs.spatius.ai/direct-mode/web)
+- [Direct Mode client guide](https://docs.spatius.ai/direct-mode/client)
+- [Web SDK reference](https://docs.spatius.ai/sdk-reference/web-sdk/reference)
 - [Direct Mode overview](../../../README.md)

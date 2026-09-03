@@ -202,5 +202,6 @@ network, or keep it on your LAN.
 
 ## References
 
-- [RTC Mode guide](https://docs.spatius.ai/rtc-mode/overview)
+- [LiveKit Agents Integration](https://docs.spatius.ai/livekit-agents/overview)
+- [Agora Convo AI Integration](https://docs.spatius.ai/agora-convoai/overview)
 - [Regions & endpoints](https://docs.spatius.ai/api-reference/regions)

@@ -127,6 +127,7 @@ The Google project behind `GOOGLE_API_KEY` is not allowed to call the model in `
 ## References
 
 - [AvatarKit LiveKit Agents Guide](https://docs.spatius.ai/livekit-agents/overview)
-- [LiveKit Agents Integration Quickstart](https://docs.spatius.ai/quickstarts/livekit-agents)
+- [LiveKit Agents agent setup](https://docs.spatius.ai/livekit-agents/server)
+- [LiveKit Agents client](https://docs.spatius.ai/livekit-agents/client)
 - [Get App ID](https://app.spatius.ai/apps)
 - [Test Avatars](https://app.spatius.ai/avatars/library)

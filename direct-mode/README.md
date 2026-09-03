@@ -140,7 +140,7 @@ browser tokens, as the server here does for the Session Token.
 
 ## References
 
-- [AvatarKit Direct Mode Guide](https://docs.spatius.ai/direct-mode/overview)
+- [AvatarKit Direct Mode Guide](https://docs.spatius.ai/direct-mode/client)
 - [Get API Keys](https://app.spatius.ai/apps)
 - [Test Avatars](https://app.spatius.ai/avatars/library)
 - [Session Token Guide](https://docs.spatius.ai/api-reference/auth)

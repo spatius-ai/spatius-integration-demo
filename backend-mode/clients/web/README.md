@@ -29,5 +29,5 @@ All variants point at the same backend (`http://localhost:8765`) and exercise th
 
 ## References
 
-- [Backend Mode integration guide](https://docs.spatius.ai/backend-mode/overview)
+- [Backend Mode integration guide](https://docs.spatius.ai/backend-mode/server-sdk)
 - [Client SDK role in Backend Mode](https://docs.spatius.ai/backend-mode/client-sdk)

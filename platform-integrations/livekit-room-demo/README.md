@@ -88,7 +88,7 @@ platform-integrations/livekit-room-demo/
 ## References
 
 - [RTC Adapter reference](https://docs.spatius.ai/sdk-reference/web-sdk/rtc-adapter)
-- [Backend Mode with LiveKit](https://docs.spatius.ai/backend-mode/with-livekit)
+- [LiveKit Agents Integration](https://docs.spatius.ai/livekit-agents/overview)
 - [LiveKit Agents client guide](https://docs.spatius.ai/livekit-agents/client)
 - [Get App ID](https://app.spatius.ai/apps)
 - [Test Avatars](https://app.spatius.ai/avatars/library)

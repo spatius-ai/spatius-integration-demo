@@ -125,5 +125,5 @@ putting it on a public network, or keep it on your LAN.
 
 ## References
 
-- [Backend Mode guide](https://docs.spatius.ai/backend-mode/overview)
+- [Backend Mode guide](https://docs.spatius.ai/backend-mode/server-sdk)
 - [Regions & endpoints](https://docs.spatius.ai/api-reference/regions)

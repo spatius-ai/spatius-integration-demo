@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  spatius_avatarkit: ^1.3.3
+  spatius_avatarkit: ^1.3.6
   # The server address, kept across launches: it is what makes the
   # server reachable, so a failed start must not lose it.
   shared_preferences: ^2.3.2

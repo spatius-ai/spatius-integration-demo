@@ -59,8 +59,8 @@ targets:
           FRAMEWORK_PATH="${PROJECT_DIR}/AvatarKit.xcframework"
           ZIP_PATH="${PROJECT_DIR}/AvatarKit.xcframework.zip"
           CHECKSUM_FILE="${PROJECT_DIR}/.avatarkit_checksum"
-          SPATIUS_AVATARKIT_IOS_URL="${SPATIUS_AVATARKIT_IOS_URL:-https://github.com/spatius-ai/avatarkit-ios-release/releases/download/v1.3.3/AvatarKit_202608171818.zip}"
-          SPATIUS_AVATARKIT_IOS_CHECKSUM="${SPATIUS_AVATARKIT_IOS_CHECKSUM:-10fe93afb7d78d516af43d58463339e0addc7f685e8c13b45b346a67bb73bf3e}"
+          SPATIUS_AVATARKIT_IOS_URL="${SPATIUS_AVATARKIT_IOS_URL:-https://github.com/spatius-ai/avatarkit-ios-release/releases/download/v1.3.4/AvatarKit_202608311739.zip}"
+          SPATIUS_AVATARKIT_IOS_CHECKSUM="${SPATIUS_AVATARKIT_IOS_CHECKSUM:-bbe56fc481d27da764040d77031fc11e52870a1762b2cf4b77a4ba516fc5f12c}"
 
           NEED_DOWNLOAD=false
 

@@ -16,7 +16,7 @@ options:
 packages:
   AvatarKitRTC:
     url: https://github.com/spatius-ai/avatarkit-ios-rtc.git
-    exactVersion: 1.0.0
+    exactVersion: 1.0.1
 
 targets:
   AvatarDemo:

@@ -86,8 +86,9 @@ The **voice** is not selectable from this demo: it belongs to the agent in the c
 (the same TTS panel as the sample rate above). Change it there rather than in `.env`. Note that the accent follows the voice rather than the language setting — some
 default voices read Chinese with an English accent.
 
-`SPATIUS_REGION` says which Spatius endpoint the avatar is served from; it defaults to
-`cn-beijing`, and accounts on the US endpoint need `us-west`.
+`SPATIUS_REGION` says which Spatius endpoint the avatar is served from; it is sent to
+Agora, defaults to `cn-beijing`, and accounts on the US endpoint need `us-west`. It does
+not affect the client, which initializes AvatarKit with `auto`.
 
 `CONVERSATION_LANGUAGE` (`en` or `zh`) picks the speech-recognition language and the
 assistant's persona. Both are fixed at the moment the agent session is created, so this

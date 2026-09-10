@@ -29,7 +29,8 @@ export default function AvatarApp() {
     fetchConfig()
       .then(async (c) => {
         await AvatarSDK.initialize(c.appId, {
-          region: c.region,
+          // The Web SDK picks its region when none is given, so `auto` is passed as an omission.
+          ...(c.region && c.region !== 'auto' ? { region: c.region } : {}),
           drivingServiceMode: MODE,
           audioFormat: { channelCount: 1, sampleRate: c.inputSampleRate },
           logLevel: LogLevel.all,

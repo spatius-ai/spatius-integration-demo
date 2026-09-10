@@ -85,15 +85,26 @@ def require_env() -> None:
     raise SystemExit(1)
 
 
+AUTO_REGION = "auto"
+FALLBACK_REGION = "us-west"
+
+
 def spatius_region() -> str:
-    return env("SPATIUS_REGION", "us-west") or "us-west"
+    """The region handed to clients. `auto` (the default when `SPATIUS_REGION` is
+    blank) lets the client SDK pick the closest serving region itself."""
+    return env("SPATIUS_REGION") or AUTO_REGION
 
 
 def console_endpoint() -> str:
-    """Where session tokens are minted. Composed from the region unless pinned."""
+    """Where session tokens are minted. Composed from the region unless pinned; with
+    `auto` there is no region to compose from, so the fallback region is used. Any
+    region will do: a session token is not tied to the region that minted it."""
+    region = spatius_region()
+    if region == AUTO_REGION:
+        region = FALLBACK_REGION
     return (
         env("SPATIUS_CONSOLE_ENDPOINT")
-        or f"https://console.{spatius_region()}.spatius.ai/v1/console"
+        or f"https://console.{region}.spatius.ai/v1/console"
     ).rstrip("/")
 
 

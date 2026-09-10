@@ -181,7 +181,7 @@ class AvatarRtcSession(application: Application) : AndroidViewModel(application)
             getApplication<Application>().applicationContext,
             appId,
             Configuration(
-                region = region.ifEmpty { "cn-beijing" },
+                region = region.ifEmpty { "auto" },
                 drivingServiceMode = DrivingServiceMode.RTC,
                 logLevel = LogLevel.WARNING,
             ),

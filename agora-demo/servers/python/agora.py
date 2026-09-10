@@ -215,6 +215,11 @@ def _mint_identities() -> dict:
     }
 
 
+# What the client passes to AvatarSDK.initialize: `auto` lets AvatarKit pick the
+# closest serving region itself.
+AVATARKIT_REGION = "auto"
+
+
 def start_agent(avatar_id: str = "", lang: str = "en") -> AgoraSession:
     """Start a ConvoAI agent and return everything the client needs to join.
 
@@ -223,6 +228,8 @@ def start_agent(avatar_id: str = "", lang: str = "en") -> AgoraSession:
     """
     app_id = _require("AGORA_APP_ID")
     spatius_app_id = _require("SPATIUS_APP_ID")
+    # Agora's own avatar parameter: which Spatius endpoint serves the avatar in the
+    # channel. Unrelated to the client, whose AvatarKit is initialized with `auto`.
     region = (os.getenv("SPATIUS_REGION") or "").strip() or "cn-beijing"
     avatar = (avatar_id or os.getenv("SPATIUS_AVATAR_ID") or DEFAULT_AVATAR_ID).strip()
     pipeline_id = _require("AGORA_PIPELINE_ID")
@@ -307,7 +314,7 @@ def start_agent(avatar_id: str = "", lang: str = "en") -> AgoraSession:
         uid=ids["user_uid"],
         avatar_id=avatar,
         spatius_app_id=spatius_app_id,
-        spatius_region=region,
+        spatius_region=AVATARKIT_REGION,
         agent_uid=ids["agent_uid"],
     )
 

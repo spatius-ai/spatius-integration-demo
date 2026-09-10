@@ -87,8 +87,8 @@ function App() {
       const token = await requestToken()
 
       if (!AvatarSDK.configuration) {
+        // No region: the SDK picks the closest serving region itself.
         await AvatarSDK.initialize(appId, {
-          region: 'us-west',
           drivingServiceMode: DrivingServiceMode.rtc,
         })
       }

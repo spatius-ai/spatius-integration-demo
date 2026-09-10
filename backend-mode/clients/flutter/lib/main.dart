@@ -82,7 +82,7 @@ class _BootPageState extends State<BootPage> {
       final config = (
         appId: json['appId'] as String? ?? '',
         avatarId: json['avatarId'] as String? ?? '',
-        region: json['region'] as String? ?? 'us-west',
+        region: json['region'] as String? ?? 'auto',
         inputSampleRate: (json['inputSampleRate'] as num?)?.toInt() ?? 16000,
       );
 

@@ -30,10 +30,13 @@ function toError(error: unknown, fallbackMessage: string) {
 
 function sameSdkConfiguration(options: UseSpatiusAvatarOptions) {
   const configuration = AvatarSDK.configuration as AvatarSdkConfiguration | null
+  // When no region is pinned the SDK stores the one it resolved, so only a pinned
+  // region can be compared.
+  const requestedRegion = options.region || 'auto'
 
   return (
     AvatarSDK.appId === options.appId &&
-    configuration?.region === (options.region ?? 'us-west') &&
+    (requestedRegion === 'auto' || configuration?.region === requestedRegion) &&
     configuration?.drivingServiceMode ===
       (options.drivingServiceMode ?? DrivingServiceMode.rtc) &&
     configuration?.characterApiBaseUrl === options.characterApiBaseUrl &&
@@ -46,7 +49,8 @@ async function ensureAvatarSdk(options: UseSpatiusAvatarOptions) {
     await AvatarSDK.initialize(options.appId, {
       characterApiBaseUrl: options.characterApiBaseUrl,
       drivingServiceMode: options.drivingServiceMode ?? DrivingServiceMode.rtc,
-      region: options.region ?? 'us-west',
+      // Omitted unless pinned: the SDK picks its own region when none is given.
+      ...(options.region && options.region !== 'auto' ? { region: options.region } : {}),
       logLevel: options.sdkLogLevel,
     } as AvatarSdkConfiguration)
   } else if (!sameSdkConfiguration(options)) {

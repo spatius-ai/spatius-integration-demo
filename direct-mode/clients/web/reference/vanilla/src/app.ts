@@ -51,8 +51,9 @@ export function createApp(root: HTMLElement) {
       const backend = await fetchConfig()
       const session = await fetchSessionToken()
       await AvatarSDK.initialize(backend.appId, {
-        // Omitting region entirely is what triggers the SDK's automatic pick.
-        ...(backend.region ? { region: backend.region } : {}),
+        // Omitting region entirely is what triggers the SDK's automatic pick, so `auto`
+        // from the server is passed as an omission.
+        ...(backend.region && backend.region !== 'auto' ? { region: backend.region } : {}),
         drivingServiceMode: MODE,
         audioFormat: { channelCount: 1, sampleRate: backend.sampleRate },
         logLevel: LogLevel.all,

@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+AUTO_REGION = "auto"
+
+
 def _default_console_endpoint(region: str) -> str:
     return f"https://console.{region}.spatius.ai/v1/console"
 
@@ -103,7 +106,11 @@ def _setting(name: str, default: str = "") -> str:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    region = _setting("SPATIUS_REGION", "us-west") or "us-west"
+    # Blank means automatic selection: clients get `auto` and let the SDK pick the
+    # closest region, and the server's own session leaves the endpoints blank so the
+    # Python SDK resolves them the same way. A pinned region composes them directly.
+    region = _setting("SPATIUS_REGION") or AUTO_REGION
+    pinned = region != AUTO_REGION
     language = _setting("CONVERSATION_LANGUAGE", "en").lower()
     return Settings(
         server_port=int(os.getenv("SERVER_PORT", "8765")),
@@ -114,10 +121,12 @@ def get_settings() -> Settings:
         avatar_api_key=_setting("SPATIUS_API_KEY"),
         avatar_id=_setting("SPATIUS_AVATAR_ID"),
         avatar_console_endpoint=(
-            _setting("SPATIUS_CONSOLE_ENDPOINT") or _default_console_endpoint(region)
+            _setting("SPATIUS_CONSOLE_ENDPOINT")
+            or (_default_console_endpoint(region) if pinned else "")
         ),
         avatar_ingress_endpoint=(
-            _setting("SPATIUS_INGRESS_ENDPOINT") or _default_ingress_endpoint(region)
+            _setting("SPATIUS_INGRESS_ENDPOINT")
+            or (_default_ingress_endpoint(region) if pinned else "")
         ),
         avatar_output_sample_rate=int(os.getenv("AVATAR_OUTPUT_SAMPLE_RATE", "16000")),
         user_input_sample_rate=int(os.getenv("USER_INPUT_SAMPLE_RATE", "16000")),

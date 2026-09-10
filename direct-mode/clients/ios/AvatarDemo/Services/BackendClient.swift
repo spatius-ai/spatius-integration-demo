@@ -49,7 +49,7 @@ enum BackendClient {
         return ServerConfig(
             appID: json["appId"] as? String ?? "",
             avatarID: json["avatarId"] as? String ?? "",
-            region: json["region"] as? String ?? "us-west",
+            region: json["region"] as? String ?? "auto",
             sampleRate: json["sampleRate"] as? Int ?? 16000,
             realtimeURL: json["realtimeUrl"] as? String ?? ""
         )

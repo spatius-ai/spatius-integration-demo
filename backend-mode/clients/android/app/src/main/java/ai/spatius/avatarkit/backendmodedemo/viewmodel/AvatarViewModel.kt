@@ -153,7 +153,7 @@ class AvatarViewModel(application: Application) : AndroidViewModel(application) 
                     getApplication(),
                     config.appId,
                     Configuration(
-                        region = config.region.ifBlank { "us-west" },
+                        region = config.region.ifBlank { "auto" },
                         audioFormat = AudioFormat(config.inputSampleRate),
                         drivingServiceMode = DrivingServiceMode.BACKEND,
                         logLevel = LogLevel.ALL

@@ -48,7 +48,7 @@ fun fetchBackendConfig(backendUrl: String): BackendConfig {
     return BackendConfig(
         appId = json.optString("appId", ""),
         avatarId = json.optString("avatarId", ""),
-        region = json.optString("region", "us-west"),
+        region = json.optString("region", "auto"),
         inputSampleRate = json.optInt("inputSampleRate", 16000),
     )
 }

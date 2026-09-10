@@ -73,7 +73,7 @@ final class AvatarRtcSession: ObservableObject {
         AvatarSDK.initialize(
             appID: appId,
             configuration: Configuration(
-                region: region.isEmpty ? "cn-beijing" : region,
+                region: region.isEmpty ? "auto" : region,
                 drivingServiceMode: .rtc,
                 logLevel: .warning
             )

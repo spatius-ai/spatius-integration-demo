@@ -43,7 +43,7 @@ class BackendClient {
     return ServerConfig(
       appId: json['appId'] as String? ?? '',
       avatarId: json['avatarId'] as String? ?? '',
-      region: json['region'] as String? ?? 'us-west',
+      region: json['region'] as String? ?? 'auto',
       sampleRate: (json['sampleRate'] as num?)?.toInt() ?? 16000,
       realtimeUrl: json['realtimeUrl'] as String? ?? '',
     );

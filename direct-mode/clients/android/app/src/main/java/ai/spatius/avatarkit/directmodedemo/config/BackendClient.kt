@@ -34,7 +34,7 @@ object BackendClient {
         ServerConfig(
             appId = json.optString("appId"),
             avatarId = json.optString("avatarId"),
-            region = json.optString("region", "us-west"),
+            region = json.optString("region", "auto"),
             sampleRate = json.optInt("sampleRate", 16000),
             realtimeUrl = json.optString("realtimeUrl"),
         )

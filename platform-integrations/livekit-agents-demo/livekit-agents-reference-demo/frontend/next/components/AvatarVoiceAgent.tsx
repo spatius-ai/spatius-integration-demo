@@ -36,7 +36,6 @@ function readSpatiusConfig() {
   return {
     appId,
     avatarId,
-    region: 'us-west',
   };
 }
 
@@ -193,8 +192,8 @@ export default function AvatarVoiceAgent({
       const config = readSpatiusConfig();
 
       if (!AvatarSDK.configuration) {
+        // No region: the SDK picks the closest serving region itself.
         await AvatarSDK.initialize(config.appId, {
-          region: config.region,
           drivingServiceMode: DrivingServiceMode.backend,
         });
       }

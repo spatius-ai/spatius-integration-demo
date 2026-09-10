@@ -63,7 +63,8 @@ export function createApp(root: HTMLElement) {
     try {
       const config = await fetchConfig()
       await AvatarSDK.initialize(config.appId, {
-        region: config.region,
+        // The Web SDK picks its region when none is given, so `auto` is passed as an omission.
+        ...(config.region && config.region !== 'auto' ? { region: config.region } : {}),
         drivingServiceMode: MODE,
         audioFormat: { channelCount: 1, sampleRate: config.inputSampleRate },
         logLevel: LogLevel.all,

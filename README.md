@@ -1,4 +1,4 @@
-<h1 align="center">Spatius Integration Demos</h1>
+<h1 align="center">Spatius AvatarKit Demos</h1>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@spatius/avatarkit"><img src="https://img.shields.io/npm/v/%40spatius%2Favatarkit?label=%40spatius%2Favatarkit&color=0ea5e9" alt="npm" /></a>
@@ -16,7 +16,7 @@
 ## Features
 
 - **Runnable examples** — Each demo is self-contained with clients, the required server-side piece, and `.env` config
-- **Three architectures** — Direct, Backend and RTC Mode, plus LiveKit Agents integration paths
+- **Multiple architectures** — Direct Mode, LiveKit Agents, and Backend Mode integration paths
 - **Multi-provider backends** — Swap between OpenAI, Google Gemini, Deepgram, Cartesia, Azure, AWS, and more
 - **Cross-platform** — Web (React, Vue, Vanilla JS, Next.js), iOS, Android, and Flutter
 
@@ -56,20 +56,21 @@
 > React client, and play the bundled sample audio. Switch the same UI to realtime
 > conversation once you have LiveKit credentials.
 
-The three modes differ only in who holds the Motion Server connection:
+The demos differ only in who holds the Motion Server connection. The two RTC demos share that answer — nobody, the avatar is in the call — and differ in where the conversation runs:
 
 | Mode | Who connects to Motion Server | Scenes |
 | --- | --- | --- |
 | [**Direct**](./direct-mode) | the client | sample audio, realtime conversation |
 | [**Backend**](./backend-mode) | the server | sample audio, realtime conversation |
-| [**RTC**](./rtc-mode) | neither — the avatar joins the call itself | realtime conversation |
+| [**LiveKit**](./livekit-demo) | neither — the avatar joins the LiveKit room itself, with the agent running on your machine | realtime conversation |
+| [**Agora**](./agora-demo) | neither — the avatar joins the Agora channel itself, with the agent hosted by ConvoAI | realtime conversation |
 
-| Platform | Direct Mode | Backend Mode | RTC Mode |
-| --- | --- | --- | --- |
-| **Web** | [`direct-mode/clients/web/reference`](./direct-mode/clients/web/reference) — React, Vue, vanilla, Next.js | [`backend-mode/clients/web`](./backend-mode/clients/web) | [`rtc-mode/clients/web`](./rtc-mode/clients/web) |
-| **iOS** | [`direct-mode/clients/ios`](./direct-mode/clients/ios) | [`backend-mode/clients/ios`](./backend-mode/clients/ios) | [`rtc-mode/clients/ios`](./rtc-mode/clients/ios) |
-| **Android** | [`direct-mode/clients/android`](./direct-mode/clients/android) | [`backend-mode/clients/android`](./backend-mode/clients/android) | [`rtc-mode/clients/android`](./rtc-mode/clients/android) |
-| **Flutter** | [`direct-mode/clients/flutter`](./direct-mode/clients/flutter) | [`backend-mode/clients/flutter`](./backend-mode/clients/flutter) | — |
+| Platform | Direct Mode | Backend Mode | LiveKit Demo | Agora Demo |
+| --- | --- | --- | --- | --- |
+| **Web** | [`direct-mode/clients/web/reference`](./direct-mode/clients/web/reference) — React, Vue, vanilla, Next.js | [`backend-mode/clients/web`](./backend-mode/clients/web) | [`livekit-demo/clients/web`](./livekit-demo/clients/web) | [`agora-demo/clients/web`](./agora-demo/clients/web) |
+| **iOS** | [`direct-mode/clients/ios`](./direct-mode/clients/ios) | [`backend-mode/clients/ios`](./backend-mode/clients/ios) | Web-only | [`agora-demo/clients/ios`](./agora-demo/clients/ios) |
+| **Android** | [`direct-mode/clients/android`](./direct-mode/clients/android) | [`backend-mode/clients/android`](./backend-mode/clients/android) | Web-only | [`agora-demo/clients/android`](./agora-demo/clients/android) |
+| **Flutter** | [`direct-mode/clients/flutter`](./direct-mode/clients/flutter) | [`backend-mode/clients/flutter`](./backend-mode/clients/flutter) | Web-only | Web-only |
 
 For LiveKit Agents specifically, see [`livekit-agent-quickstart`](./platform-integrations/livekit-agents-demo/livekit-agent-quickstart) and the [reference demo](./platform-integrations/livekit-agents-demo/livekit-agents-reference-demo).
 
@@ -87,8 +88,8 @@ The fastest Web SDK path is Direct Mode. The server holds the credentials and mi
 Session Tokens, so start it first:
 
 ```bash
-git clone https://github.com/spatius-ai/spatius-integration-demo.git
-cd spatius-integration-demo/direct-mode/servers/python
+git clone https://github.com/spatius-ai/spatius-avatar-demo.git
+cd spatius-avatar-demo/direct-mode/servers/python
 
 cp .env.example .env
 # Fill SPATIUS_API_KEY and SPATIUS_APP_ID. The realtime scene also needs the
@@ -100,7 +101,7 @@ uv run app.py
 Then the client, in a second terminal:
 
 ```bash
-cd spatius-integration-demo/direct-mode/clients/web/reference/react
+cd spatius-avatar-demo/direct-mode/clients/web/reference/react
 pnpm install
 pnpm dev
 ```

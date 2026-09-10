@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>AvatarKit RTC</string>
+	<string>AvatarKit Agora</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,7 +26,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Used to reach the RTC Mode server running on your computer.</string>
+	<string>Used to reach the Agora demo server running on your computer.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone access is required to talk to the avatar.</string>
 	<key>UILaunchScreen</key>

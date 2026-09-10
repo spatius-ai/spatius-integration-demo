@@ -1,14 +1,13 @@
 import Foundation
 
-/// The realtime scene's link to the backend agent.
+/// The link to the backend agent.
 ///
-/// Direct Mode either way: the client owns the Motion Server connection and drives the
-/// avatar itself. The scenes differ only in where the audio comes from —
+/// Direct Mode: the client owns the Motion Server connection and drives the avatar
+/// itself. The conversation runs elsewhere —
 ///
-///   pre-recorded  a bundled .pcm file  ──────────────────►  controller.send()
-///   realtime      mic ──ws──► agent (ASR/LLM/TTS) ──ws──►  controller.send()
+///   mic ──ws──► agent (ASR/LLM/TTS) ──ws──► controller.send()
 ///
-/// — so both end at the same call and the rendering side is untouched.
+/// — so the rendering side sees nothing but PCM16 arriving.
 ///
 /// There is no LiveKit SDK here on purpose. The agent runs server-side without a room:
 /// `AgentSession` only builds a RoomIO when its audio input and output are unset, and
@@ -40,7 +39,7 @@ final class RealtimeClient: NSObject {
     }
 
     /// Connect, and resolve once the agent is up and listening.
-    func connect(url: String, language: String) async throws {
+    func connect(url: String) async throws {
         guard let endpoint = URL(string: url) else {
             throw NSError(domain: "RealtimeClient", code: 0, userInfo: [
                 NSLocalizedDescriptionKey: "Cannot reach the agent at \(url)",
@@ -52,9 +51,9 @@ final class RealtimeClient: NSObject {
         socket.resume()
         receive()
 
-        let start = try JSONSerialization.data(
-            withJSONObject: ["type": "start", "language": language]
-        )
+        // No settings travel with it: the language, the models and the voice are the
+        // server's, fixed when it builds the agent session.
+        let start = try JSONSerialization.data(withJSONObject: ["type": "start"])
         try await socket.send(.string(String(decoding: start, as: UTF8.self)))
 
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in

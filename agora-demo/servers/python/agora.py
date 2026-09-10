@@ -45,8 +45,6 @@ SESSION_TTL_SECONDS = 30 * 60
 # A backstop — the client still has to stop explicitly, since this minute is billed.
 IDLE_TIMEOUT_SECONDS = 60
 
-# Sample rates Motion Server accepts (see docs.spatius.ai/concepts/audio).
-SUPPORTED_SAMPLE_RATES = (8_000, 16_000, 22_050, 24_000, 32_000, 44_100, 48_000)
 DEFAULT_AVATAR_SAMPLE_RATE = 24_000
 
 REQUEST_TIMEOUT_SECONDS = 20
@@ -85,16 +83,13 @@ PROMPTS = {
 def _avatar_sample_rate() -> int:
     """The avatar's audio sample rate, which **must equal the TTS output rate**.
 
-    Motion Server supports the rates in SUPPORTED_SAMPLE_RATES but does not resample: a
-    mismatch is simply silent — the avatar joins, publishes and reports its track as
+    Motion Server accepts 8000/16000/22050/24000/32000/44100/48000 but does not
+    resample: a mismatch is simply silent — the avatar joins, publishes and reports its track as
     playing, the volume stays at zero, and neither side reports an error.
 
     24000 is the default and also what TTS providers that do not expose the setting
     (OpenAI, for one) actually emit, so it rarely needs changing.
 
-    Read on every call rather than as a module-level constant: a constant is evaluated
-    at import, before the .env the config page writes back has been loaded, so changes
-    would not take effect.
     """
     configured = (os.getenv("AGORA_AVATAR_SAMPLE_RATE") or "").strip()
     return int(configured or DEFAULT_AVATAR_SAMPLE_RATE)
@@ -173,7 +168,7 @@ def _safe_upstream_message(payload: object, status: int) -> str:
     passed through verbatim."""
     # `detail` first: `reason` is a bare code ("InternalError") while `detail` carries the
     # actual cause ("properties: tts.addon not found"), and losing that turned a wrong
-    # pipeline id into an opaque 500 on the config page.
+    # pipeline id into an opaque 500 at the client.
     detail = ""
     if isinstance(payload, dict):
         for key in ("detail", "reason", "message"):
@@ -218,13 +213,6 @@ def _mint_identities() -> dict:
             app_id, certificate, channel, avatar_uid, Role_Publisher, ttl, ttl
         ),
     }
-
-
-def missing_keys() -> list[str]:
-    """Which Agora settings are still unset. The Spatius ones are checked by the
-    caller, since both transports need them."""
-    required = ("AGORA_APP_ID", "AGORA_APP_CERTIFICATE", "AGORA_PIPELINE_ID")
-    return [k for k in required if not (os.getenv(k) or "").strip()]
 
 
 def start_agent(avatar_id: str = "", lang: str = "en") -> AgoraSession:

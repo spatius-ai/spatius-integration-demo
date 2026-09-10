@@ -1,6 +1,6 @@
 /**
  * Copy iframe content build to Next.js public directory
- * Also copies public assets (audio, images) to Next.js public root
+ * Also copies its public assets (images) to the Next.js public root
  * Cross-platform compatible script
  */
 
@@ -32,7 +32,7 @@ if (fs.existsSync(srcDir)) {
 }
 
 // Copy iframe-content public assets to Next.js public root
-// so that /audio/... and /image.png paths work from within the iframe
+// so that /image.png paths work from within the iframe
 if (fs.existsSync(iframePublicDir)) {
   fs.cpSync(iframePublicDir, nextPublicDir, { recursive: true })
   console.log('iframe public assets copied to Next.js public/')

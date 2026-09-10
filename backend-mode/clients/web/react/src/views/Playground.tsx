@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { DrivingServiceMode } from '@spatius/avatarkit'
-import type { AppConfig } from '../App'
+import type { BackendConfig } from '../utils/backendClient'
 import { useAvatarManager } from '../hooks/useAvatarSDK'
+import { DEFAULT_CHARACTERS } from '../data/characters'
 import CharacterList from '../components/CharacterList'
 import ControlPanel from '../components/ControlPanel'
 import StageControls from '../components/StageControls'
@@ -9,13 +9,13 @@ import Toast from '../components/Toast'
 import { useToast } from '../hooks/useToast'
 
 interface Props {
-  mode: DrivingServiceMode
-  config: AppConfig
+  /** What the server reported at boot. The avatar id is the character to open with. */
+  config: BackendConfig
 }
 
 const MAX_AVATARS = 4
 
-export default function Playground({ mode, config }: Props) {
+export default function Playground({ config }: Props) {
   const [multiMode, setMultiMode] = useState(false)
   const [loadingCharId, setLoadingCharId] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -132,6 +132,20 @@ export default function Playground({ mode, config }: Props) {
     }
   }, [loadingCharId, avatars.length, multiMode, removeAll, loadAvatar, setActiveUid, notify])
 
+  /**
+   * Open on the avatar the server nominated, so the stage is never empty on arrival.
+   *
+   * Once only, and only if nothing has been picked: the list stays the way to switch
+   * character, and re-running this would fight whatever the user chose.
+   */
+  const booted = useRef(false)
+  useEffect(() => {
+    if (booted.current || !config.avatarId) return
+    booted.current = true
+    const known = DEFAULT_CHARACTERS.find(c => c.id === config.avatarId)
+    void handleCharacterSelect(config.avatarId, known?.name ?? 'Avatar')
+  }, [config.avatarId, handleCharacterSelect])
+
   const handleRemoveAvatar = useCallback((uid: string) => {
     const cell = containerRefs.current.get(uid)
     if (cell) cell.remove()
@@ -231,8 +245,6 @@ export default function Playground({ mode, config }: Props) {
           activeUid={activeUid}
           onSlotSelect={setActiveUid}
           onNotify={notify}
-          scene={config.scene}
-          language={config.language}
         />
       </div>
 

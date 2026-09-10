@@ -10,6 +10,9 @@ interface Character {
 }
 
 const props = defineProps<{
+  /** The avatar the server's `.env` points at. Offered first, since it is the one
+   *  the deployment is actually set up for. */
+  serverAvatarId?: string
   loadingId: string | null
   loadProgress: number
   /** Nothing on the canvas yet, so this list is the only thing worth clicking. */
@@ -22,7 +25,19 @@ const adding = ref(false)
 const customId = ref('')
 const customChars = ref<Character[]>([])
 
-const allChars = computed(() => [...DEFAULT_CHARACTERS, ...customChars.value])
+// The avatar the server's .env names, first in the list: it is the one this
+// deployment is set up for, and it may not be among the built-in four.
+const serverChar = computed<Character[]>(() =>
+  props.serverAvatarId && !DEFAULT_CHARACTERS.some(c => c.id === props.serverAvatarId)
+    ? [{ id: props.serverAvatarId, name: 'Server default' }]
+    : [],
+)
+
+const allChars = computed(() => [
+  ...serverChar.value,
+  ...DEFAULT_CHARACTERS,
+  ...customChars.value,
+])
 
 function handleAdd() {
   const id = customId.value.trim()

@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { AppConfig } from '../App'
-import { RtcSession, stopSessionOnUnload } from '../utils/rtcSession'
+import { RtcSession, stopSessionOnUnload, type ServerConfig } from '../utils/rtcSession'
 import CharacterList from '../components/CharacterList'
 import Toast from '../components/Toast'
 import { useToast } from '../hooks/useToast'
 
 interface Props {
-  config: AppConfig
+  config: ServerConfig
 }
 
 /**
@@ -43,7 +42,7 @@ export default function Room({ config }: Props) {
    * Whether the microphone has ever been opened in this room.
    *
    * Drives the green ring, which points at the mic the moment it becomes usable and
-   * stops for good once it has been pressed — same as the character list and Start.
+   * stops for good once it has been pressed — same as the character list.
    * Not `!micOn`, or the ring would come back every time the mic is muted, long
    * after the user has learned where it is.
    */
@@ -66,7 +65,6 @@ export default function Room({ config }: Props) {
         onProgress: setStatus,
         onDownload: percent => setStatus(`Downloading avatar… ${percent}%`),
         onRendered: () => setRendered(true),
-        onError: message => notify(message),
       })
       sessionRef.current = session
 
@@ -78,7 +76,7 @@ export default function Room({ config }: Props) {
       const superseded = () => sessionRef.current !== session
 
       try {
-        await session.start(stageRef.current, id, config.language)
+        await session.start(stageRef.current, id)
         if (superseded()) return
         setStatus('Connecting the agent…')
 
@@ -120,7 +118,7 @@ export default function Room({ config }: Props) {
         if (!superseded()) setConnecting(false)
       }
     },
-    [config.language, notify],
+    [notify],
   )
 
   /**
@@ -197,6 +195,12 @@ export default function Room({ config }: Props) {
       <div className="playground-center">
         <div className="center-header">
           <span className="avatar-count">{characterName || 'Agora Demo'}</span>
+          {/* Which language to speak. It is fixed when the agent starts, so it is the
+              server's CONVERSATION_LANGUAGE rather than anything chosen here — worth
+              showing, since speaking the other one transcribes to nothing. */}
+          <span className="lang-badge">
+            {config.language === 'zh' ? '中文' : 'English'}
+          </span>
         </div>
 
         <div className="canvas-stage">

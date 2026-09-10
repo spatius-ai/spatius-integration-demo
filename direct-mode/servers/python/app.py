@@ -6,15 +6,12 @@ It does two things:
 
   * mints short-lived Session Tokens, so `SPATIUS_API_KEY` stays on the server and
     the client holds no credentials at all;
-  * runs the realtime scene's voice agent, handing its synthesized speech back to the
-    client as PCM.
+  * runs the voice agent, handing its synthesized speech back to the client as PCM.
 
-The two scenes differ only in where the client's audio comes from:
+    mic ──ws──► agent (ASR/LLM/TTS) ──ws──► controller.send()
 
-    sample audio    bundled .pcm  ──────────────────────────► controller.send()
-    realtime        mic ──ws──► agent (ASR/LLM/TTS) ──ws──► controller.send()
-
-Both end at the same call, which is why the client code for them is nearly identical.
+Everything configurable lives in `.env`, and it is validated at startup: the clients
+send nothing but the avatar they want to render.
 
 ⚠️ This is a demo with no authentication. Anyone who can reach this address can mint a
 token and start a conversation, and both cost money. Add authentication and rate
@@ -27,12 +24,10 @@ import asyncio
 import base64
 import json
 import logging
-import os
 import socket
 import threading
 import time as _time
 from datetime import datetime, timezone
-from pathlib import Path
 
 import httpx
 from flask import Flask, jsonify, request
@@ -55,138 +50,26 @@ def _err(message: str, status: int = 500, **extra):
     return jsonify({"error": message, **extra}), status
 
 
-def _env_error(missing: list[str]):
-    """The one failure every reader hits first: nothing filled in yet.
-
-    Answered with what is missing and where to get it, rather than a stack trace from
-    whichever call happened to need it.
-    """
-    return (
-        jsonify(
-            {
-                "error": "invalid_server_env",
-                "message": "Fill these in .env before using this scene.",
-                "missingEnvFile": config.ENV_FILE_MISSING,
-                "missingKeys": missing,
-                "docs": config.DOCS_LINKS,
-            }
-        ),
-        500,
-    )
-
-
 # ---------------------------------------------------------------- Config
-#
-# There is one copy of the configuration, in .env, and the clients do not keep their
-# own. Filling the page in once writes back here, so the next visit — from this
-# browser, another one, or a phone — starts with the values already in place.
-#
-# That matters most on a phone, where there is no .env to edit and pasting an API key
-# into a virtual keyboard is not something to repeat.
-
-ENV_PATH = Path(__file__).resolve().parent / ".env"
-
-# What a client may read and write. Secrets are included: this server runs on the
-# user's own machine, reachable on their LAN, and being able to fill everything in on
-# screen matters more than keeping them out of an API that has no auth anyway.
-#
-# Only what has no working default. Model names, voices and endpoints already default
-# in code; listing them here would suggest each has to be filled in.
-EDITABLE_KEYS = [
-    "SPATIUS_APP_ID",
-    "SPATIUS_API_KEY",
-    "SPATIUS_AVATAR_ID",
-    "SPATIUS_REGION",
-    "LIVEKIT_URL",
-    "LIVEKIT_API_KEY",
-    "LIVEKIT_API_SECRET",
-]
-
-
-def _read_env_file() -> dict[str, str]:
-    """The keys already in .env. Understands only `KEY=value`, one per line."""
-    if not ENV_PATH.exists():
-        return {}
-    existing: dict[str, str] = {}
-    for raw in ENV_PATH.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        existing[key.strip()] = value.strip()
-    return existing
 
 
 @app.get("/api/config")
 def read_config():
-    """What the client needs to initialize the SDK, plus whatever is already saved.
+    """What a client needs to boot, and nothing else.
 
-    Direct Mode clients keep no `.env` of their own — that is the point of the token
-    server — so the avatar, the region and any saved credentials reach them here.
+    Read-only, and free of secrets: the App ID identifies the app rather than
+    authorizing anything, and the rest is addressing. The API Key and LiveKit's
+    credentials never leave this process.
     """
-    saved = {key: config.env(key) for key in EDITABLE_KEYS}
-    # A placeholder from .env.example is not a value; sent as-is it would populate the
-    # form with `your_spatius_api_key` and look filled in.
-    saved = {k: ("" if config.is_placeholder(v) else v) for k, v in saved.items()}
-
     return jsonify(
         {
-            **saved,
+            "appId": config.app_id(),
             "avatarId": config.avatar_id(),
             "region": config.spatius_region(),
             "sampleRate": config.SAMPLE_RATE,
             "realtimeUrl": _realtime_url(),
-            # Per scene, so the UI can grey out the one that cannot run yet and say
-            # which key is missing, rather than failing at the click.
-            #
-            # The Spatius pair is absent from both: a client may paste its own, so a
-            # server without them in .env is not necessarily unconfigured.
-            "missing": {
-                "sample": [],
-                "realtime": config.missing_keys(
-                    "LIVEKIT_URL",
-                    "LIVEKIT_API_KEY",
-                    "LIVEKIT_API_SECRET",
-                ),
-            },
         }
     )
-
-
-@app.post("/api/config")
-def write_config():
-    """Save what was filled in on the page, taking effect immediately.
-
-    Rewrites the whole file rather than appending: a repeated key resolves in a way
-    that is not obvious, and duplicates eventually produce the "I changed it and
-    nothing happened" problem. Comments and formatting are lost; what that buys is a
-    file that always matches what is on screen.
-
-    Keys already in the file that are not on the page — model names, voices, ports —
-    are carried over, or the first save would wipe them out.
-    """
-    body = request.get_json(silent=True) or {}
-    updates = {k: str(v).strip() for k, v in body.items() if k in EDITABLE_KEYS}
-    # A blank field means "leave what is saved", not "erase it". Clearing a value is
-    # done by editing the file, which is also the only place it is visible.
-    updates = {k: v for k, v in updates.items() if v}
-
-    merged = _read_env_file()
-    merged.update(updates)
-
-    lines = [
-        "# Written by the demo's config page. You can also edit this file directly.",
-        "",
-    ]
-    lines += [f"{key}={value}" for key, value in merged.items()]
-    ENV_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    # Mirror into the running process, so a save takes effect without a restart.
-    for key, value in updates.items():
-        os.environ[key] = value
-
-    logger.info("[config] saved %s", ", ".join(sorted(updates)) or "nothing")
-    return jsonify({"ok": True, "saved": sorted(updates)})
 
 
 # ---------------------------------------------------------------- Session tokens
@@ -208,21 +91,13 @@ def _extract_token(data: dict) -> str | None:
 
 @app.post("/api/session-token")
 def issue_session_token():
-    """Exchange an API Key for a short-lived Session Token.
+    """Exchange the API Key for a short-lived Session Token.
 
     This is the whole reason Direct Mode needs a backend at all: an API Key is
     long-lived, while a Session Token expires within the hour and grants only what
-    one session needs.
-
-    The key comes from the request when the client sends one and from `.env`
-    otherwise. A demo lets you paste it into the page to get going; a real
-    deployment keeps it server-side and never accepts it from a browser.
+    one session needs. The key is read from `.env` and never accepted from a client.
     """
-    body = request.get_json(silent=True) or {}
-
-    api_key = str(body.get("apiKey") or "").strip() or config.env("SPATIUS_API_KEY")
-    if not api_key or config.is_placeholder(api_key):
-        return _env_error(["SPATIUS_API_KEY"])
+    api_key = config.env("SPATIUS_API_KEY")
 
     ttl_minutes = int(config.env("SESSION_TOKEN_TTL_MINUTES", "55") or "55")
     expire_at = int(_time.time()) + ttl_minutes * 60
@@ -254,7 +129,7 @@ def issue_session_token():
     token = _extract_token(payload)
     if not token:
         logger.error("[session-token] no token in payload: %s", payload)
-        return _err("session_token_missing", 502, payload=payload)
+        return _err("session_token_missing", 502)
 
     logger.info("[session-token] issued, expires in %d minutes", ttl_minutes)
     return jsonify(
@@ -265,19 +140,6 @@ def issue_session_token():
             "region": config.spatius_region(),
         }
     )
-
-
-@app.get("/api/sample-audio")
-def sample_audio():
-    """The bundled clip for the sample-audio scene.
-
-    Served from here rather than from the client's own `public/` so that all five
-    framework clients play the same audio, and swapping it is one file on the server.
-    """
-    path = config.sample_audio_path()
-    if not path.is_file():
-        return _err("sample_audio_missing", 404, path=str(path))
-    return app.response_class(path.read_bytes(), mimetype="application/octet-stream")
 
 
 @app.get("/health")
@@ -340,7 +202,7 @@ def _lan_ip() -> str:
     return next((a for a in candidates if not a.startswith("127.")), "127.0.0.1")
 
 
-# ---------------------------------------------------------------- Realtime scene
+# ---------------------------------------------------------------- Realtime agent
 #
 # On its own WebSocket server rather than Flask: the agent is asyncio throughout, and
 # Flask's synchronous worker model has nowhere to run it.
@@ -351,7 +213,7 @@ async def _handle_realtime(websocket) -> None:
 
     The protocol is small enough to state in full:
 
-        client → server   {type: "start", language?}
+        client → server   {type: "start"}
                           {type: "mic_audio", audio: <base64 pcm16>}
                           {type: "text", text}      a typed line, spoken as-is
                           {type: "interrupt"}
@@ -382,12 +244,6 @@ async def _handle_realtime(websocket) -> None:
             if kind == "start":
                 if agent is not None:
                     continue
-                missing = config.missing_keys(
-                    "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"
-                )
-                if missing:
-                    send({"type": "error", "message": f"missing config: {', '.join(missing)}"})
-                    continue
 
                 agent = RealtimeAgent(
                     on_audio=lambda pcm: send(
@@ -398,7 +254,6 @@ async def _handle_realtime(websocket) -> None:
                     on_transcript=lambda role, text: send(
                         {"type": "transcript", "role": role, "text": text}
                     ),
-                    language=(msg.get("language") or "en").strip(),
                 )
                 try:
                     await agent.start()
@@ -447,10 +302,16 @@ def _start_realtime_server() -> None:
 
 
 if __name__ == "__main__":
+    # Before anything binds a port: every client boots by fetching /api/config, so a
+    # server running against an unfilled .env only moves the failure somewhere with
+    # less context.
+    config.require_env()
+
     lan = _lan_ip()
     print(f"\n  Direct Mode server")
     print(f"  HTTP      http://0.0.0.0:{HTTP_PORT}   (LAN: http://{lan}:{HTTP_PORT})")
-    print(f"  Realtime  ws://0.0.0.0:{WS_PORT}/ws/realtime\n")
+    print(f"  Realtime  ws://0.0.0.0:{WS_PORT}/ws/realtime")
+    print(f"  Language  {config.conversation_language()}\n")
 
     _start_realtime_server()
     # debug=False: the reloader runs this module twice, which would start a second

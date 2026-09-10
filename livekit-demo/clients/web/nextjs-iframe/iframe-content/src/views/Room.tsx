@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { AppConfig } from '../App'
 import { RtcSession, stopSessionOnUnload } from '../utils/rtcSession'
 import CharacterList from '../components/CharacterList'
 import Toast from '../components/Toast'
 import { useToast } from '../hooks/useToast'
-
-interface Props {
-  config: AppConfig
-}
 
 /**
  * The room, laid out like the other two modes: characters on the left, the avatar in
@@ -17,7 +12,7 @@ interface Props {
  * call, so the panel holds a microphone and nothing else: no clips to play, and no
  * pause or interrupt, because there is no local playback to act on.
  */
-export default function Room({ config }: Props) {
+export default function Room() {
   const stageRef = useRef<HTMLDivElement>(null)
   const sessionRef = useRef<RtcSession | null>(null)
   /** Pending teardown, cancelled if this remounts — see the effect below. */
@@ -66,7 +61,6 @@ export default function Room({ config }: Props) {
         onProgress: setStatus,
         onDownload: percent => setStatus(`Downloading avatar… ${percent}%`),
         onRendered: () => setRendered(true),
-        onError: message => notify(message),
       })
       sessionRef.current = session
 
@@ -78,7 +72,7 @@ export default function Room({ config }: Props) {
       const superseded = () => sessionRef.current !== session
 
       try {
-        await session.start(stageRef.current, id, config.language)
+        await session.start(stageRef.current, id)
         if (superseded()) return
         setStatus('Connecting the agent…')
 
@@ -120,7 +114,7 @@ export default function Room({ config }: Props) {
         if (!superseded()) setConnecting(false)
       }
     },
-    [config.language, notify],
+    [notify],
   )
 
   /**

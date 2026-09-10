@@ -6,7 +6,7 @@ import 'dart:io';
 /// Read, never written. Credentials belong in the server's `.env` — copying secrets
 /// across apps on a phone is miserable, and the keyboard mangles them: autocapitalization
 /// and autocorrect leave damage that is invisible afterwards. One copy in `.env` covers
-/// every client.
+/// every client, and none of it reaches the device.
 class ServerConfig {
   const ServerConfig({
     required this.appId,
@@ -14,8 +14,6 @@ class ServerConfig {
     required this.region,
     required this.sampleRate,
     required this.realtimeUrl,
-    required this.missingSample,
-    required this.missingRealtime,
   });
 
   final String appId;
@@ -23,15 +21,8 @@ class ServerConfig {
   final String region;
   final int sampleRate;
 
-  /// Where the realtime scene's WebSocket lives.
+  /// Where the agent's WebSocket lives.
   final String realtimeUrl;
-
-  /// Which credentials each scene is still waiting on, as named in the server's
-  /// `.env`. The sample-audio scene needs only the Spatius pair, so it can run while
-  /// the realtime one is still unconfigured — worth telling the user rather than
-  /// failing at the tap.
-  final List<String> missingSample;
-  final List<String> missingRealtime;
 }
 
 /// Talks to the Direct Mode server.
@@ -49,21 +40,12 @@ class BackendClient {
   static Future<ServerConfig> fetchConfig(String baseUrl) async {
     final json = await _get(baseUrl, '/api/config');
 
-    // `missing` is an object keyed by scene, not a flat list.
-    final missing = json['missing'] as Map<String, dynamic>?;
-    List<String> listFor(String key) =>
-        (missing?[key] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
-
     return ServerConfig(
-      // SPATIUS_APP_ID, not appId: the server returns its .env keys verbatim
-      // alongside the derived fields, and this one has no derived alias.
-      appId: json['SPATIUS_APP_ID'] as String? ?? '',
+      appId: json['appId'] as String? ?? '',
       avatarId: json['avatarId'] as String? ?? '',
       region: json['region'] as String? ?? 'us-west',
       sampleRate: (json['sampleRate'] as num?)?.toInt() ?? 16000,
       realtimeUrl: json['realtimeUrl'] as String? ?? '',
-      missingSample: listFor('sample'),
-      missingRealtime: listFor('realtime'),
     );
   }
 
@@ -109,17 +91,11 @@ class BackendClient {
     }
   }
 
-  /// The server's own wording for a failure, so a missing credential names itself
-  /// rather than arriving as "HTTP 500".
+  /// The server's own wording for a failure, so it names itself rather than
+  /// arriving as "HTTP 500".
   static String _serverMessage(String body, int code) {
     try {
       final json = jsonDecode(body) as Map<String, dynamic>;
-      final missing = (json['missingKeys'] as List<dynamic>?)
-          ?.map((e) => e.toString())
-          .toList();
-      if (missing != null && missing.isNotEmpty) {
-        return 'The server is missing: ${missing.join(', ')}';
-      }
       final error = json['error'] as String?;
       if (error != null && error.isNotEmpty) return error;
     } catch (_) {

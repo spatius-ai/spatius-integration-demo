@@ -1,7 +1,7 @@
 /**
- * Copy iframe content build to Next.js public directory
- * Also copies public assets (audio, images) to Next.js public root
- * Cross-platform compatible script
+ * Copy the iframe app's build into the Next.js public directory, plus its own
+ * public assets so paths like /public-avatar-guide.png resolve from inside the
+ * iframe. Cross-platform.
  */
 
 const fs = require('fs')
@@ -12,17 +12,14 @@ const destDir = path.join(__dirname, '../public/iframe')
 const iframePublicDir = path.join(__dirname, '../iframe-content/public')
 const nextPublicDir = path.join(__dirname, '../public')
 
-// Create public directory if it doesn't exist
 if (!fs.existsSync(nextPublicDir)) {
   fs.mkdirSync(nextPublicDir, { recursive: true })
 }
 
-// Remove existing iframe directory
 if (fs.existsSync(destDir)) {
   fs.rmSync(destDir, { recursive: true, force: true })
 }
 
-// Copy built iframe content
 if (fs.existsSync(srcDir)) {
   fs.cpSync(srcDir, destDir, { recursive: true })
   console.log('iframe content copied to public/iframe')
@@ -31,8 +28,8 @@ if (fs.existsSync(srcDir)) {
   process.exit(1)
 }
 
-// Copy iframe-content public assets to Next.js public root
-// so that /audio/... and /image.png paths work from within the iframe
+// Copy iframe-content public assets to the Next.js public root, so the images the
+// iframe references resolve there too.
 if (fs.existsSync(iframePublicDir)) {
   fs.cpSync(iframePublicDir, nextPublicDir, { recursive: true })
   console.log('iframe public assets copied to Next.js public/')

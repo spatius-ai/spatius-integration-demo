@@ -15,7 +15,6 @@
 		429878EFE968DBE34C61AFF8 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5DBA2C3CD2BF938AB55C77 /* Config.swift */; };
 		5E9AE807524ADEABA00A8421 /* Characters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A4620F457C141CFB4C494B3 /* Characters.swift */; };
 		8B2B70BEFD7988DA02B46337 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B6541E3EADB32A5ED65DC66 /* App.swift */; };
-		A25ABD4F5D1A1A68F1F00CD4 /* ConfigCheckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A32834DB0BA5FA89C9E082 /* ConfigCheckView.swift */; };
 		FC725B664A5F07300347C832 /* AvatarStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42F826408BB9C2C51C28AB7 /* AvatarStage.swift */; };
 /* End PBXBuildFile section */
 
@@ -23,7 +22,6 @@
 		1F60AFC8A4A3E7D3004EDEDC /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
 		31A971DD94C69B234340E897 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		3A4620F457C141CFB4C494B3 /* Characters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Characters.swift; sourceTree = "<group>"; };
-		43A32834DB0BA5FA89C9E082 /* ConfigCheckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigCheckView.swift; sourceTree = "<group>"; };
 		55C6C26FCF55C3E43F4AADE5 /* AvatarRtcSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarRtcSession.swift; sourceTree = "<group>"; };
 		59C84244520D1E080569E31C /* RoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomView.swift; sourceTree = "<group>"; };
 		7A46EE9393CA9CE8A614F7F1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -87,7 +85,6 @@
 		BB297E5940DDE6A14C412AEE /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				43A32834DB0BA5FA89C9E082 /* ConfigCheckView.swift */,
 				59C84244520D1E080569E31C /* RoomView.swift */,
 			);
 			path = Views;
@@ -143,7 +140,7 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					926DC502EA8996B807D26826 = {
-						DevelopmentTeam = 4T2SFHD6HA;
+						DevelopmentTeam = "${DEVELOPMENT_TEAM}";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -192,7 +189,6 @@
 				FC725B664A5F07300347C832 /* AvatarStage.swift in Sources */,
 				5E9AE807524ADEABA00A8421 /* Characters.swift in Sources */,
 				429878EFE968DBE34C61AFF8 /* Config.swift in Sources */,
-				A25ABD4F5D1A1A68F1F00CD4 /* ConfigCheckView.swift in Sources */,
 				0638BDFA5C6DC4E6E2E5B566 /* RoomView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -270,7 +266,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4T2SFHD6HA;
+				DEVELOPMENT_TEAM = ;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = AvatarDemo/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -293,7 +289,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4T2SFHD6HA;
+				DEVELOPMENT_TEAM = ;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				INFOPLIST_FILE = AvatarDemo/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;

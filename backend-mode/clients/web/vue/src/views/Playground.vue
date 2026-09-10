@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
-import { DrivingServiceMode } from '@spatius/avatarkit'
-import type { AppConfig } from '../App.vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import type { BackendConfig } from '../utils/backendClient'
 import { useAvatarManager } from '../composables/useAvatarSDK'
+import { DEFAULT_CHARACTERS } from '../data/characters'
 import { useToast } from '../composables/useToast'
 import CharacterList from '../components/CharacterList.vue'
 import ControlPanel from '../components/ControlPanel.vue'
 import StageControls from '../components/StageControls.vue'
 import Toast from '../components/Toast.vue'
 
-defineProps<{ mode: DrivingServiceMode; config: AppConfig }>()
+/** `config` is what the server reported at boot; its avatar id opens the stage. */
+const props = defineProps<{ config: BackendConfig }>()
 
 const MAX_AVATARS = 4
 
@@ -168,6 +169,18 @@ const avatarSlots = computed(() =>
 const loadProgress = computed(() => avatars.value.find(a => a.loading)?.loadProgress ?? 0)
 
 const isEmpty = computed(() => avatars.value.length === 0 && !loadingCharId.value)
+
+/**
+ * Open on the avatar the server nominated, so the stage is never empty on arrival.
+ *
+ * Once only: the list stays the way to switch character, and re-running this would
+ * fight whatever the user chose.
+ */
+onMounted(() => {
+  if (!props.config.avatarId) return
+  const known = DEFAULT_CHARACTERS.find(c => c.id === props.config.avatarId)
+  void handleCharacterSelect(props.config.avatarId, known?.name ?? 'Avatar')
+})
 </script>
 
 <template>
@@ -214,8 +227,6 @@ const isEmpty = computed(() => avatars.value.length === 0 && !loadingCharId.valu
         :multiMode="multiMode"
         :avatarSlots="avatarSlots"
         :activeUid="activeUid"
-        :scene="config.scene"
-        :language="config.language"
         @slotSelect="setActiveUid"
         @notify="notify"
       />

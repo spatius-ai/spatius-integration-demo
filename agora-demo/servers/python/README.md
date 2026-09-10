@@ -31,6 +31,12 @@ uv sync
 uv run python server.py
 ```
 
+`.env` is the demo's only configuration. Every setting it has is here — the Spatius and
+Agora credentials, the conversation language, the default avatar, the sample rate — and
+none of them is entered on a client. The server **validates `.env` on startup** and
+exits non-zero naming what is missing, so a key you forgot shows up here rather than as
+a failed session in a browser several minutes later.
+
 It binds `0.0.0.0`, not `127.0.0.1`: a phone on the same network cannot reach the dev
 machine's loopback address, so the mobile clients would find nothing there. The web
 clients work either way, since the browser runs on this machine.
@@ -77,12 +83,17 @@ configured in the console. Motion Server does not resample, and a mismatch is si
 the avatar joins, publishes, and never makes a sound.
 
 The **voice** is not selectable from this demo: it belongs to the agent in the console
-(the same TTS panel as the sample rate above). Change it there rather than in the
-clients. Note that the accent follows the voice rather than the language setting — some
+(the same TTS panel as the sample rate above). Change it there rather than in `.env`. Note that the accent follows the voice rather than the language setting — some
 default voices read Chinese with an English accent.
 
 `SPATIUS_REGION` says which Spatius endpoint the avatar is served from; it defaults to
 `cn-beijing`, and accounts on the US endpoint need `us-west`.
+
+`CONVERSATION_LANGUAGE` (`en` or `zh`) picks the speech-recognition language and the
+assistant's persona. Both are fixed at the moment the agent session is created, so this
+is a server setting rather than something a client sends. Note that the *accent* follows
+the voice on the agent rather than this — some default voices read Chinese with an
+English accent.
 
 ### The failures that report nothing
 
@@ -110,9 +121,8 @@ Two more:
 ## API
 
 ```
-GET  /health                   → { ok, missing, lanUrl }
-GET  /api/config               → saved credentials, what is missing
-POST /api/config               → save credentials; takes effect immediately
+GET  /health                   → { ok, lanUrl }
+GET  /api/config               → what a client needs to boot: { avatarId, language }
 POST /api/session              → join credentials + the agent on its way
 POST /api/session/stop         → end a session
 ```
@@ -120,8 +130,13 @@ POST /api/session/stop         → end a session
 That is the whole API. Nothing drives the avatar: once a client has joined, everything
 reaches it over the channel.
 
-`/api/session` accepts `{ language, avatarId }` and answers with what the client joins
-with:
+No credential is readable through it. `/api/config` answers with the default avatar and
+the conversation language and nothing else — the API key, the Agora certificate and the
+pipeline id never leave this machine. There is no endpoint that writes `.env`; edit the
+file and restart.
+
+`/api/session` accepts `{ avatarId }` — the character the user picked, and the only
+genuinely per-session thing a client knows — and answers with what it joins with:
 
 ```jsonc
 { "sessionId": "…", "appId": "…", "channelName": "…",

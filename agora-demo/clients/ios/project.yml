@@ -6,13 +6,13 @@ options:
   xcodeVersion: "16.0"
   createIntermediateGroups: true
 
-# Everything comes from one package, unlike the other two modes, which download
+# Everything comes from one package, unlike the other demos, which download
 # AvatarKit.xcframework themselves: AvatarKitRTC depends on AvatarKit and pulls it
 # in, so declaring both would embed the framework twice and fail the build with
 # "Multiple commands produce …/AvatarKit.framework".
 #
 # Agora rather than LiveKit, and not a choice: the iOS RTC SDK ships the Agora stack
-# alone. The app says so on every request — see AgentClient.createSession.
+# alone, which is why this client lives in the Agora demo and nowhere else.
 packages:
   AvatarKitRTC:
     url: https://github.com/spatius-ai/avatarkit-ios-rtc.git
@@ -40,14 +40,14 @@ targets:
         # Xcode's Signing & Capabilities.
         DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
         CODE_SIGN_STYLE: Automatic
-        # Device only. Neither Agora nor the AvatarKit build that RTC depends on
-        # ships a simulator slice, so there is nothing to run there — this mode
-        # has to be tested on a real device.
+        # Device only. Neither Agora nor the AvatarKit build that AvatarKitRTC depends
+        # on ships a simulator slice, so there is nothing to run there — this demo has
+        # to be tested on a real device.
         EXCLUDED_ARCHS[sdk=iphonesimulator*]: arm64
     info:
       path: AvatarDemo/Info.plist
       properties:
-        CFBundleDisplayName: "AvatarKit RTC"
+        CFBundleDisplayName: "AvatarKit Agora"
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UILaunchScreen: {}
         NSMicrophoneUsageDescription: "Microphone access is required to talk to the avatar."

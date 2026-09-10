@@ -1,6 +1,6 @@
 package ai.spatius.avatarkit.directmodedemo.ui
 
-import ai.spatius.avatarkit.directmodedemo.config.ConfigStore
+import ai.spatius.avatarkit.directmodedemo.data.DEFAULT_CHARACTERS
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,7 +48,7 @@ fun CharacterPicker(
         title = { Text("Characters", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ConfigStore.characters.forEach { (id, name) ->
+                DEFAULT_CHARACTERS.forEach { (id, name) ->
                     val selected = id == selectedId
                     Row(
                         modifier = Modifier

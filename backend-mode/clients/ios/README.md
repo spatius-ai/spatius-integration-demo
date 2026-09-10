@@ -10,7 +10,7 @@ iOS client for [Backend Mode](../../README.md). All AI processing (ASR → LLM �
 
 ## Setup
 
-1. Edit `AvatarDemo/Config.swift` with your backend URL, or run `../../start.sh` to auto-configure it:
+1. Edit `AvatarDemo/Config.swift` with your backend URL, or run `../../start.sh` to auto-configure it. It is the only source for the address:
 
    ```swift
    static let backendModeURL = "http://localhost:8765"   // simulator
@@ -26,6 +26,15 @@ iOS client for [Backend Mode](../../README.md). All AI processing (ASR → LLM �
    > **AvatarDemo → Signing & Capabilities**, set **Team** to your own account, and
    > change **Bundle Identifier** to something unique (for example
    > `com.yourname.avatarDemo`). The Simulator needs no signing.
+
+## Boot flow
+
+There is no configuration screen. The app starts, reads `/api/config` from the
+backend, calls `AvatarSDK.initialize` with what comes back, and opens on the
+playground with the character the backend nominates. Every credential and every
+conversation option (language, region, voice) lives in the backend's `.env` — the only
+thing set on this side is the backend address, because it is how the app finds the
+backend at all. If the backend is unreachable the app shows the error and a **Retry**.
 
 ## How it works
 

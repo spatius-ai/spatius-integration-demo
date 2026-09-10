@@ -3,7 +3,8 @@
  *
  * Backend Mode means the **server** owns the Motion Server connection: it drives the
  * avatar and sends back encoded audio plus motion messages. This client never talks
- * to Spatius — it captures microphone audio and renders what arrives.
+ * to Spatius — it captures microphone audio and renders what arrives, and holds no
+ * credential of any kind.
  *
  * That is the whole difference from Direct Mode. There, the client holds a Session
  * Token and calls `controller.send()`; here the same audio reaches the avatar
@@ -11,9 +12,6 @@
  *
  *   avatar_audio   → controller.yieldAudioData(pcm, isLast) → returns a conversation id
  *   avatar_frames  → controller.yieldFramesData(batches, conversationId)
- *
- * Both scenes produce those same two messages, so nothing below cares which one is
- * running.
  */
 import type { AvatarController } from '@spatius/avatarkit'
 
@@ -47,47 +45,24 @@ export function backendHttpUrl(): string {
     .replace(/\/ws\/agent$/, '')
 }
 
+/**
+ * What the server needs this client to know, and the whole of it.
+ *
+ * No credentials: the server holds them, and nothing here would have a use for one.
+ * The app id and region go to `AvatarSDK.initialize`, the avatar id is the character
+ * the playground opens with, the rate describes the PCM on the socket.
+ */
 export interface BackendConfig {
   appId: string
   avatarId: string
   region: string
-  outputSampleRate: number
   inputSampleRate: number
-  /** Credentials already saved on the server, blank when nothing is stored yet. */
-  SPATIUS_APP_ID?: string
-  SPATIUS_API_KEY?: string
-  SPATIUS_AVATAR_ID?: string
-  SPATIUS_REGION?: string
-  LIVEKIT_URL?: string
-  LIVEKIT_API_KEY?: string
-  LIVEKIT_API_SECRET?: string
-  /** Which credentials each scene is still waiting on. */
-  missing: { sample: string[]; realtime: string[] }
-  /** The clips the pre-recorded scene can play, as listed by the server. */
-  clips: { name: string; clip: string }[]
-  clipsHint: string
 }
 
 export async function fetchConfig(): Promise<BackendConfig> {
   const res = await fetch(`${backendHttpUrl()}/api/config`)
   if (!res.ok) throw new Error(`Cannot reach the Backend Mode server (HTTP ${res.status})`)
   return (await res.json()) as BackendConfig
-}
-
-/**
- * Save credentials to the server's `.env`, so the next visit starts with them in
- * place.
- *
- * One stored copy rather than per-browser state: a phone has no `.env` to edit and
- * no shared localStorage, so entering an API key there once should be enough.
- */
-export async function saveConfig(values: Record<string, string>): Promise<void> {
-  const res = await fetch(`${backendHttpUrl()}/api/config`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(values),
-  })
-  if (!res.ok) throw new Error(`Could not save configuration (HTTP ${res.status})`)
 }
 
 function base64ToBytes(base64: string): Uint8Array {
@@ -108,8 +83,6 @@ function bytesToBase64(bytes: Uint8Array): string {
 }
 
 export interface BackendCallbacks {
-  onReady?: (config: { appId: string; avatarId: string }) => void
-  onAgentReady?: () => void
   /** The avatar started producing sound. */
   onSpeaking?: () => void
   onTranscript?: (role: 'user' | 'assistant', text: string) => void
@@ -133,10 +106,6 @@ export class BackendClient {
 
   constructor(callbacks: BackendCallbacks = {}) {
     this.callbacks = callbacks
-  }
-
-  get isOpen(): boolean {
-    return this.socket?.readyState === WebSocket.OPEN
   }
 
   /** Where rendered audio and motion go. Set before connecting. */
@@ -164,13 +133,11 @@ export class BackendClient {
         switch (msg.type) {
           case 'ready':
             window.clearTimeout(timer)
-            this.callbacks.onReady?.(msg.avatar ?? {})
             resolve()
             break
           case 'agent_ready':
             this.resolveAgentReady?.()
             this.resolveAgentReady = null
-            this.callbacks.onAgentReady?.()
             break
           case 'avatar_audio': {
             const controller = this.controller
@@ -232,18 +199,17 @@ export class BackendClient {
     this.send({ type: 'set_avatar', avatarId })
   }
 
-  /** Scene one: ask the server to drive the avatar from one of its bundled clips. */
-  playSample(clip: string): void {
-    this.send({ type: 'play_sample', clip })
-  }
-
   /**
-   * Scene two: bring the conversational agent up, resolving once it is listening.
+   * Bring the conversational agent up, resolving once it is listening.
    *
    * Awaitable rather than fire-and-forget: microphone audio pushed before the agent
    * exists is dropped, and that presents as a mic that records nothing.
+   *
+   * No language here: recognition, the voice and the persona are fixed when the
+   * agent session is built, so they are the server's `CONVERSATION_LANGUAGE` rather
+   * than something a client chooses.
    */
-  startAgent(language: string): Promise<void> {
+  startAgent(): Promise<void> {
     if (this.agentReady) return this.agentReady
     this.agentReady = new Promise<void>((resolve, reject) => {
       this.resolveAgentReady = resolve
@@ -258,7 +224,7 @@ export class BackendClient {
         done()
       }
     })
-    this.send({ type: 'start_agent', language })
+    this.send({ type: 'start_agent' })
     return this.agentReady
   }
 

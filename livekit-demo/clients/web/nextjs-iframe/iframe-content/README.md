@@ -1,42 +1,48 @@
-# Direct Mode Next.js Iframe Content
+# LiveKit Demo — iframe content
 
-This Vite React app is the iframe payload used by the parent Next.js SDK-mode demo.
+This Vite + React app is the iframe payload for the parent Next.js demo. It is the
+same app as [`../../react`](../../react), isolated in its own document: the SDK
+reaches for `location` and WebGL as it loads, and a separate document keeps it out of
+Next's server pass entirely. The sibling [`../../nextjs-direct`](../../nextjs-direct)
+solves that with `next/dynamic` instead.
 
-## Run Directly
+## Run
 
-```bash
-pnpm install
-pnpm dev
-```
-
-Default URL: `http://localhost:5178`
-
-When running through the parent wrapper, start from `../` instead:
+Normally you start the parent, which runs this alongside it:
 
 ```bash
 cd ..
-pnpm install
-pnpm dev
+pnpm install:all
+pnpm dev            # Next on 3021, this on 5198
 ```
 
-The parent Next.js app proxies `/iframe/*` to this Vite app in development and copies the built iframe assets during production builds.
+To run it on its own:
 
-## Usage
+```bash
+pnpm install
+pnpm dev            # http://localhost:5198
+```
 
-Enter your Spatius App ID and Session Token in the iframe UI, select a region and avatar, then start playback with one of the bundled PCM audio files.
+Either way the demo server has to be up first — see the
+[demo README](../../../../README.md). The app opens on the playground: pick a
+character and talk. There is nothing to fill in; every credential and setting lives
+in the server's `.env`.
 
-## Project Structure
+Set `VITE_DEMO_SERVER_URL` in `.env` if the server is not on this machine (see
+`.env.example`).
+
+The parent proxies `/iframe/*` here in development, and copies this app's build into
+its `public/iframe` for production.
+
+## Layout
 
 ```text
 iframe-content/
 ├── index.html
-├── package.json
 ├── vite.config.ts
 └── src/
-    ├── App.tsx
-    ├── main.tsx
-    ├── components/
-    ├── hooks/
-    ├── views/
-    └── utils/
+    ├── App.tsx          fetches the server config, initializes the SDK, shows the room
+    ├── views/Room.tsx   the playground
+    ├── utils/           the RTC session
+    ├── components/  data/  hooks/
 ```

@@ -1,13 +1,12 @@
 /**
- * The realtime scene's link to the backend agent.
+ * The link to the backend agent.
  *
- * Direct Mode either way: the client owns the Motion Server connection and drives
- * the avatar itself. The scenes differ only in where the audio comes from —
+ * Direct Mode: the client owns the Motion Server connection and drives the avatar
+ * itself. The conversation runs elsewhere —
  *
- *   pre-recorded  a bundled .pcm file  ──────────────────►  controller.send()
- *   realtime      mic ──ws──► agent (ASR/LLM/TTS) ──ws──►  controller.send()
+ *   mic ──ws──► agent (ASR/LLM/TTS) ──ws──► controller.send()
  *
- * — so both end at the same call and the rendering side is untouched.
+ * — so the rendering side sees nothing but PCM16 arriving.
  *
  * There is no LiveKit SDK here on purpose. The agent runs server-side without a
  * room: `AgentSession` only builds a RoomIO when its audio input and output are
@@ -20,7 +19,6 @@ import { fetchConfig } from '@spatius-demo/direct-mode-core'
 export const SAMPLE_RATE = 16000
 
 export interface RealtimeCallbacks {
-  onReady?: () => void
   /** A reply started arriving. */
   onSpeaking?: () => void
   /** The agent finished a reply. */
@@ -146,16 +144,11 @@ export class RealtimeClient {
     private readonly callbacks: RealtimeCallbacks = {},
   ) {}
 
-  get isReady(): boolean {
-    return this.ready
-  }
-
-  get micActive(): boolean {
-    return this.mic.active
-  }
+  /** Whether the current reply has put any audio into the SDK yet. */
+  private turnHasAudio = false
 
   /** Connect, and resolve once the agent is up and listening. */
-  async connect(url: string, language = 'en'): Promise<void> {
+  async connect(url: string): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(url)
       this.socket = socket
@@ -165,7 +158,9 @@ export class RealtimeClient {
         20_000,
       )
 
-      socket.onopen = () => socket.send(JSON.stringify({ type: 'start', language }))
+      // No settings travel with it: the language, the models and the voice are the
+      // server's, fixed when it builds the agent session.
+      socket.onopen = () => socket.send(JSON.stringify({ type: 'start' }))
 
       socket.onmessage = (event) => {
         let msg: any
@@ -178,7 +173,6 @@ export class RealtimeClient {
           case 'ready':
             window.clearTimeout(timer)
             this.ready = true
-            this.callbacks.onReady?.()
             resolve()
             break
           case 'audio': {
@@ -187,18 +181,26 @@ export class RealtimeClient {
             const bytes = base64ToBytes(msg.audio || '')
             if (bytes.length) {
               this.callbacks.onSpeaking?.()
+              this.turnHasAudio = true
               this.avatar.send(bytes.buffer as ArrayBuffer, false)
             }
             break
           }
           case 'turn_end':
             // The empty final send is what tells the SDK the turn is over, so the
-            // avatar returns to idle rather than holding the last mouth shape.
-            this.avatar.send(new ArrayBuffer(0), true)
+            // avatar returns to idle rather than holding the last mouth shape. Only
+            // when something was sent: an end with no audio behind it opens and
+            // closes an empty stream, which Motion Server rejects and then drops
+            // the whole connection.
+            if (this.turnHasAudio) {
+              this.avatar.send(new ArrayBuffer(0), true)
+              this.turnHasAudio = false
+            }
             this.callbacks.onTurnEnd?.()
             break
           case 'interrupt':
             // The user talked over the reply; drop what has not played yet.
+            this.turnHasAudio = false
             this.avatar.interrupt()
             break
           case 'transcript':
@@ -243,13 +245,6 @@ export class RealtimeClient {
   say(text: string): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify({ type: 'text', text }))
-    }
-  }
-
-  interrupt(): void {
-    this.avatar.interrupt()
-    if (this.socket?.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({ type: 'interrupt' }))
     }
   }
 

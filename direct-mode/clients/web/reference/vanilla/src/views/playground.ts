@@ -1,11 +1,9 @@
 import { ConversationState } from '@spatius/avatarkit'
 import { AvatarManagerService, type AvatarInstance } from '../avatarManager'
 import { DEFAULT_CHARACTERS } from '../data/characters'
-import { PCM_ASSETS, AUDIO_SOURCE_HINT } from '../data/audioAssets'
-import { loadPcmFile, sendPcmChunks } from '../utils/audio'
 import { pushToast } from '../utils/toast'
 import { RealtimeClient, fetchRealtimeUrl } from '../utils/realtimeClient'
-import type { AppConfig } from './configuration'
+import type { BackendConfig } from '@direct-core'
 
 const DASH_URL = 'https://app.spatius.ai'
 const MAX_AVATARS = 4
@@ -77,16 +75,22 @@ const STATUS_ROWS: {
   },
 ]
 
-export function createPlayground(config: AppConfig): HTMLElement {
+export function createPlayground(config: BackendConfig): HTMLElement {
   const manager = new AvatarManagerService()
 
   let multiMode = false
   let loadingCharId: string | null = null
-  let sendingPath: string | null = null
   let customChars: { id: string; name: string }[] = []
+
+  // The avatar the server's .env names, first in the list: it is the one this
+  // deployment is set up for, and it may not be among the built-in four.
+  const serverChars =
+    config.avatarId && !DEFAULT_CHARACTERS.some(c => c.id === config.avatarId)
+      ? [{ id: config.avatarId, name: 'Server default' }]
+      : []
   let adding = false
 
-  // Realtime scene state.
+  // Conversation state.
   let realtime: RealtimeClient | null = null
   let agentReady = false
   let agentConnecting = false
@@ -102,16 +106,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
   let micUsed = false
   let speaking = false
   const transcript: { role: 'user' | 'assistant'; text: string }[] = []
-
-  /**
-   * Stops the clip currently being streamed.
-   *
-   * Held here rather than in the panel because interrupting is reachable from two
-   * places, and `controller.interrupt()` alone is not enough: it drops what is
-   * buffered, but the sender keeps feeding chunks in and playback picks straight
-   * back up.
-   */
-  let cancelSend: (() => void) | null = null
 
   const root = document.createElement('div')
   root.className = 'playground'
@@ -249,7 +243,7 @@ export function createPlayground(config: AppConfig): HTMLElement {
   realtimeHint.innerHTML =
     'The conversation runs on the backend — ASR, LLM and TTS — and its speech ' +
     'arrives here as PCM over a WebSocket. That audio goes to ' +
-    '<code>controller.send()</code>, exactly like the pre-recorded clips do.'
+    '<code>controller.send()</code>, which accepts PCM16 from any source.'
 
   realtimePanel.appendChild(micHeading)
   realtimePanel.appendChild(micBtn)
@@ -277,20 +271,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
     renderCharacters()
   })
 
-  // The clip list never changes, so it is built once here and only its labels are
-  // touched on render.
-  const clipList = document.createElement('div')
-  clipList.className = 'audio-list'
-  clipList.innerHTML = `<h4>Audio Files<span class="audio-hint" title="${AUDIO_SOURCE_HINT}">?</span></h4>`
-  const clipButtons = new Map<string, HTMLButtonElement>()
-  for (const a of PCM_ASSETS) {
-    const btn = document.createElement('button')
-    btn.className = 'secondary full-width audio-btn'
-    btn.addEventListener('click', () => void handleSendPcm(a.path))
-    clipButtons.set(a.path, btn)
-    clipList.appendChild(btn)
-  }
-
   /** What the toggle currently shows, so its icon is only rewritten on a change. */
   let togglePaused: boolean | null = null
 
@@ -310,7 +290,7 @@ export function createPlayground(config: AppConfig): HTMLElement {
   // ---------------------------------------------------------------- characters
 
   function renderCharacters() {
-    const all = [...DEFAULT_CHARACTERS, ...customChars]
+    const all = [...serverChars, ...DEFAULT_CHARACTERS, ...customChars]
     const empty = manager.avatars.length === 0 && !loadingCharId
     // Until a character is picked there is nothing to render and every other
     // control is inert, which reads as a broken page rather than a first step.
@@ -511,8 +491,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
 
   function handleInterrupt() {
     manager.activeController?.interrupt()
-    cancelSend?.()
-    cancelSend = null
   }
 
   function renderStage() {
@@ -578,7 +556,7 @@ export function createPlayground(config: AppConfig): HTMLElement {
         },
       )
       realtime = client
-      await client.connect(url, config.language)
+      await client.connect(url)
       agentReady = true
     } catch (e: any) {
       pushToast(e?.message ?? 'Could not reach the agent')
@@ -597,8 +575,7 @@ export function createPlayground(config: AppConfig): HTMLElement {
       return
     }
     // The agent is brought up on the first press rather than on mount: it costs a
-    // model session, and someone who only wants the pre-recorded scene should not
-    // pay for one by loading the page.
+    // model session, and loading the page should not start one.
     if (!realtime) {
       await connectAgent()
       if (!realtime) return
@@ -644,42 +621,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
     }
   }
 
-  async function handleSendPcm(path: string) {
-    const connected = manager.activeAvatar?.connectionState === 'connected'
-    // Direct Mode has no session until start() runs, so audio sent now would be
-    // dropped silently. Say so instead of leaving a dead button.
-    if (!connected) {
-      pushToast('Please click Start to connect before sending audio.', 'warning')
-      return
-    }
-    const controller = manager.activeController
-    if (!controller || sendingPath) return
-    sendingPath = path
-    renderPanel()
-    try {
-      // The audio context is already warmed up by handleStart; doing it here
-      // again stalls the first frames of playback.
-      const data = await loadPcmFile(path)
-      // Wrapped so interrupting from the stage controls also clears the panel's
-      // "sending" state — otherwise the clip stops but its button stays on '...'.
-      const stop = sendPcmChunks(
-        data,
-        (chunk, end) => controller.send(chunk.buffer as ArrayBuffer, end),
-        () => { sendingPath = null; renderPanel() },
-      )
-      cancelSend = () => {
-        stop()
-        sendingPath = null
-        renderPanel()
-      }
-    } catch (e: any) {
-      console.error('Send failed:', e)
-      pushToast(`Failed to send audio: ${e?.message ?? e}`)
-      sendingPath = null
-      renderPanel()
-    }
-  }
-
   function renderPanel() {
     const avatar = manager.activeAvatar
     const connected = avatar?.connectionState === 'connected'
@@ -703,15 +644,13 @@ export function createPlayground(config: AppConfig): HTMLElement {
       panel.appendChild(slotSelector)
       panel.appendChild(panelHint)
       panel.appendChild(realtimePanel)
-      panel.appendChild(clipList)
     }
 
     startBtn.hidden = !hasAvatar
     statusBar.hidden = !avatar
     slotSelector.hidden = !(multiMode && manager.avatars.length > 0)
     panelHint.hidden = hasAvatar
-    realtimePanel.hidden = !hasAvatar || config.scene !== 'realtime'
-    clipList.hidden = !hasAvatar || config.scene === 'realtime'
+    realtimePanel.hidden = !hasAvatar
 
     // Above the status bar: connecting is the first thing to do once a character
     // is loaded, and the status below is what reports whether it worked. Pulsed
@@ -764,37 +703,27 @@ export function createPlayground(config: AppConfig): HTMLElement {
 
     if (!hasAvatar) return
 
-    // What drives the avatar, and the only thing that differs between the two
-    // scenes: a list of clips to send, or a microphone whose replies come back
-    // from the agent. Both end at controller.send().
-    if (config.scene === 'realtime') {
-      // Only the parts that actually change are written; the microphone, the text
-      // field and the Say button are the same nodes every render.
-      speakingDot.hidden = !speaking
-      micBtn.className = `mic-btn ${micOn ? 'on' : ''} ${connected && !micUsed ? 'needs-pick' : ''}`
-      micBtn.title = micOn ? 'Stop the microphone' : 'Start talking'
-      micBtn.disabled = agentConnecting
-      micState.textContent = agentConnecting
-        ? 'Starting the agent…'
-        : micOn
-          ? 'Listening — just talk, the agent decides when your turn ends.'
-          : agentReady
-            ? 'Microphone off.'
-            : 'Tap to start talking.'
+    // What drives the avatar: a microphone whose replies come back from the agent
+    // as PCM, handed straight to controller.send().
+    //
+    // Only the parts that actually change are written; the microphone, the text
+    // field and the Say button are the same nodes every render.
+    speakingDot.hidden = !speaking
+    micBtn.className = `mic-btn ${micOn ? 'on' : ''} ${connected && !micUsed ? 'needs-pick' : ''}`
+    micBtn.title = micOn ? 'Stop the microphone' : 'Start talking'
+    micBtn.disabled = agentConnecting
+    micState.textContent = agentConnecting
+      ? 'Starting the agent…'
+      : micOn
+        ? 'Listening — just talk, the agent decides when your turn ends.'
+        : agentReady
+          ? 'Microphone off.'
+          : 'Tap to start talking.'
 
-      transcriptBox.hidden = transcript.length === 0
-      transcriptBox.innerHTML = transcript
-        .map(t => `<p class="${t.role}"><strong>${t.role === 'user' ? 'You' : 'Avatar'}</strong>${t.text}</p>`)
-        .join('')
-      return
-    }
-
-    // Built once, then only the labels and disabled flags change — same reason as
-    // the Start button above.
-    for (const [path, btn] of clipButtons) {
-      btn.disabled = sendingPath !== null
-      btn.textContent = sendingPath === path ? '...' : `▶ ${PCM_ASSETS.find(a => a.path === path)!.name}`
-    }
+    transcriptBox.hidden = transcript.length === 0
+    transcriptBox.innerHTML = transcript
+      .map(t => `<p class="${t.role}"><strong>${t.role === 'user' ? 'You' : 'Avatar'}</strong>${t.text}</p>`)
+      .join('')
   }
 
   // ---------------------------------------------------------------- wiring
@@ -820,11 +749,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
     // being brought up.
     const state = manager.activeAvatar?.connectionState
     if (state === 'disconnected' || state === 'failed') {
-      // Called, not just dropped: the chunk loop is a chain of timeouts that
-      // keeps calling send() on its own. Clearing the reference alone leaves it
-      // running against a controller that is no longer connected.
-      cancelSend?.()
-      cancelSend = null
       if (realtime) closeAgent()
     }
     renderAll()

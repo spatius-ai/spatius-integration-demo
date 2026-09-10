@@ -3,14 +3,6 @@ import Combine
 import AVFoundation
 import AvatarKit
 
-/// Shown next to the clip list so nobody reads the bundled files as the limit of
-/// what Direct Mode accepts.
-let audioSourceHint = """
-These clips are bundled samples, not a limitation. send() takes any PCM16 audio \
-at the configured sample rate — stream it live from a microphone, a TTS service, \
-or your own pipeline the same way. The demo ships files so it runs without extra setup.
-"""
-
 @MainActor class AvatarViewModel: ObservableObject {
     // What the SDK reports back, one property per public callback. Every one is
     // registered whether or not this demo acts on it: which hooks exist is part of
@@ -24,46 +16,27 @@ or your own pipeline the same way. The demo ships files so it runs without extra
     @Published var fps: Int?
     @Published var errorMessage: String?
 
-    @Published var isSendingAudio = false
-    @Published var currentlyPlayingFile: String?
     @Published var avatar: Avatar?
     @Published var toast: ToastMessage?
 
-    // Realtime scene.
+    // Conversation.
     @Published var micOn = false
     @Published var agentConnecting = false
     @Published var agentReady = false
     @Published var transcript: [(role: String, text: String)] = []
 
-    let audioFiles: [String]
     private(set) var isConnected = false
     private var avatarController: AvatarController?
-    private var sendAudioTask: Task<Void, Never>?
 
     private var realtime: RealtimeClient?
     private var mic: MicrophoneCapture?
     private var realtimeURL = ""
-    private var language = "en"
 
-    init() {
-        var files: [String] = []
-        if let path = Bundle.main.resourcePath {
-            let enumerator = FileManager.default.enumerator(atPath: path)
-            while let item = enumerator?.nextObject() as? String {
-                if item.hasSuffix(".pcm") {
-                    files.append((item as NSString).lastPathComponent)
-                }
-            }
-        }
-        audioFiles = files.sorted()
-    }
-
-    /// Told once, when the playground opens: where the agent lives and which language
-    /// it should run in. Both are fixed for the session — the agent's recognition,
-    /// voice and persona are all set when its session is built.
-    func configureRealtime(url: String, language: String) {
+    /// Told once, when the playground opens: where the agent lives. The language, the
+    /// models and the voice are the server's `.env` — all three are fixed when it
+    /// builds the agent session, so none of them is a client setting.
+    func configureRealtime(url: String) {
         realtimeURL = url
-        self.language = language
     }
 
     func setAvatarController(_ controller: AvatarController) {
@@ -76,9 +49,8 @@ or your own pipeline the same way. The demo ships files so it runs without extra
                 self.isConnected = true
             case .disconnected, .failed:
                 self.isConnected = false
-                // The chunk loop keeps feeding a controller that has gone, and the
-                // agent would hold a model session with nowhere to send its audio.
-                self.cancelSending()
+                // The agent would otherwise hold a model session with nowhere to
+                // send its audio.
                 self.closeAgent()
             case .connecting:
                 break
@@ -104,71 +76,20 @@ or your own pipeline the same way. The demo ships files so it runs without extra
 
     func start() { avatarController?.start() }
 
-    /// Streams a bundled clip to the avatar.
-    ///
-    /// The chunking is what matters, not the file: `send` accepts any PCM16 at the
-    /// configured sample rate, so a microphone or TTS stream feeds it the same way —
-    /// hand it bytes as they arrive and mark the final chunk with `end: true`.
-    func sendAudioFile(_ filename: String) {
-        // Direct Mode has no session until start() runs, so audio sent now
-        // would be dropped silently. Say so instead of leaving a dead button.
-        guard isConnected else {
-            toast = ToastMessage(text: "Please tap Start to connect before sending audio.", kind: .warning)
-            return
-        }
-        guard let controller = avatarController else { return }
-        cancelSending()
-        controller.interrupt()
-
-        let name = filename.replacingOccurrences(of: ".pcm", with: "")
-        guard let url = Bundle.main.url(forResource: name, withExtension: "pcm"),
-              let audioData = try? Data(contentsOf: url) else {
-            errorMessage = "Cannot read \(filename)"
-            toast = ToastMessage(text: "Cannot read \(filename)")
-            return
-        }
-
-        isSendingAudio = true
-        currentlyPlayingFile = filename
-
-        let chunkSize = AvatarSDK.configuration.audioFormat.sampleRate * 2
-
-        sendAudioTask = Task {
-            var offset = 0
-            while offset < audioData.count, !Task.isCancelled, self.isConnected {
-                let end = min(offset + chunkSize, audioData.count)
-                let isLast = end >= audioData.count
-                controller.send(Data(audioData[offset..<end]), end: isLast)
-                offset = end
-                if !isLast {
-                    try? await Task.sleep(nanoseconds: 100_000_000)
-                }
-            }
-            if !Task.isCancelled {
-                self.isSendingAudio = false
-                self.currentlyPlayingFile = nil
-            }
-        }
-    }
-
     func pause() { avatarController?.pause() }
     func resume() { avatarController?.resume() }
 
     func interrupt() {
-        // Both halves: interrupt() drops what is buffered, but the chunk loop keeps
-        // feeding more in and playback picks straight back up.
-        cancelSending()
         avatarController?.interrupt()
         realtime?.interrupt()
     }
 
     func close() {
-        cancelSending()
         closeAgent()
         avatarController?.close()
     }
 
-    // MARK: - Realtime scene
+    // MARK: - Conversation
 
     func toggleMic() async {
         guard isConnected else {
@@ -186,9 +107,8 @@ or your own pipeline the same way. The demo ships files so it runs without extra
             toast = ToastMessage(text: "Microphone permission was denied.")
             return
         }
-        // The agent is brought up on the first press rather than on entry: it costs a
-        // model session, and someone who only wants the pre-recorded scene should not
-        // pay for one by opening the app.
+        // The agent is brought up on the first press rather than on entry: it costs
+        // a model session, and opening the app should not start one.
         guard await ensureAgent() else { return }
 
         let capture = MicrophoneCapture(sampleRate: AvatarSDK.configuration.audioFormat.sampleRate)
@@ -223,7 +143,7 @@ or your own pipeline the same way. The demo ships files so it runs without extra
 
         let client = RealtimeClient(callbacks: RealtimeClient.Callbacks(
             onAudio: { [weak self] pcm in
-                // Straight to the same call the pre-recorded scene ends at. `end`
+                // Straight to controller.send(). `end`
                 // stays false: a turn is many of these, and turn_end closes it.
                 Task { @MainActor in self?.avatarController?.send(pcm, end: false) }
             },
@@ -250,7 +170,9 @@ or your own pipeline the same way. The demo ships files so it runs without extra
         ))
 
         do {
-            try await client.connect(url: realtimeURL, language: language)
+            // No settings travel with it: the language, the models and the voice are
+            // the server's, fixed when it builds the agent session.
+            try await client.connect(url: realtimeURL)
             realtime = client
             agentReady = true
             return true
@@ -284,12 +206,5 @@ or your own pipeline the same way. The demo ships files so it runs without extra
         agentReady = false
         realtime?.close()
         realtime = nil
-    }
-
-    private func cancelSending() {
-        sendAudioTask?.cancel()
-        sendAudioTask = nil
-        isSendingAudio = false
-        currentlyPlayingFile = nil
     }
 }

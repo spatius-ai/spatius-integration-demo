@@ -47,7 +47,7 @@ onUnmounted(() => {
 
 <template>
   <div class="toast-stack" v-if="messages.length > 0">
-    <div v-for="m in messages" :key="m.id" :class="['toast', `toast-${m.kind}`]" role="alert">
+    <div v-for="m in messages" :key="m.id" class="toast toast-error" role="alert">
       <span class="toast-text">{{ m.text }}</span>
       <button class="toast-close" @click="emit('dismiss', m.id)" aria-label="Dismiss">×</button>
     </div>

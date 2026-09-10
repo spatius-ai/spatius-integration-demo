@@ -2,33 +2,23 @@ package ai.spatius.avatarkit.directmodedemo.ui
 
 import ai.spatius.avatarkit.AvatarView
 import ai.spatius.avatarkit.directmodedemo.R
-import ai.spatius.avatarkit.directmodedemo.audio.AUDIO_SOURCE_HINT
-import ai.spatius.avatarkit.directmodedemo.audio.PCM_ASSETS
-import ai.spatius.avatarkit.directmodedemo.audio.PcmAsset
-import ai.spatius.avatarkit.directmodedemo.config.Scene
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,7 +34,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -90,13 +79,12 @@ data class StatusRow(
  *
  * Same parts as the Web client and in the same order, folded into one column: the
  * avatar with its playback controls, then the status bar, then whatever drives the
- * avatar for this scene. What the Web version puts in a left-hand list — the
+ * avatar. What the Web version puts in a left-hand list — the
  * characters — is a dialog here, opened from the header; a phone has no room for a
  * permanent sidebar, and the avatar is what the screen is for.
  */
 @Composable
 fun PlaygroundScreen(
-    scene: Scene,
     characterName: String,
     loading: Boolean,
     loadProgress: Int,
@@ -106,7 +94,6 @@ fun PlaygroundScreen(
     connected: Boolean,
     connecting: Boolean,
     playback: PlaybackState,
-    sendingPath: String?,
     canCreateAvatarView: Boolean,
     micOn: Boolean,
     agentConnecting: Boolean,
@@ -114,7 +101,6 @@ fun PlaygroundScreen(
     transcript: List<Pair<String, String>>,
     onPickCharacter: () -> Unit,
     onStart: () -> Unit,
-    onSendPcm: (PcmAsset) -> Unit,
     onInterrupt: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -240,35 +226,15 @@ fun PlaygroundScreen(
                 }
             }
 
-            // ---- The SDK callbacks and the clips that drive the avatar.
-            //
-            // Side by side in the pre-recorded scene, each scrolling in its own column:
-            // the clips are what gets tapped and the status is what gets read while the
-            // avatar answers, and stacked they do not fit on one screen — every clip
-            // meant scrolling down to tap and back up to watch. The realtime scene has
-            // no clip list, so the status keeps the full width there.
-            val clipsBeside = rendered && scene == Scene.Sample
-            if (statusRows.isNotEmpty() || clipsBeside) {
+            // ---- The SDK callbacks. Full width: the microphone below it is one
+            //      button, so nothing competes for the row.
+            if (statusRows.isNotEmpty()) {
                 item {
-                    if (clipsBeside) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().height(240.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                                StatusCard(statusRows = statusRows, bounded = true)
-                            }
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                                ClipsCard(sendingPath = sendingPath, onSendPcm = onSendPcm)
-                            }
-                        }
-                    } else if (statusRows.isNotEmpty()) {
-                        StatusCard(statusRows = statusRows, bounded = false)
-                    }
+                    StatusCard(statusRows = statusRows)
                 }
             }
 
-            if (rendered && scene == Scene.Realtime) {
+            if (rendered) {
                 item {
                     RealtimePanel(
                         connected = connected,
@@ -286,7 +252,7 @@ fun PlaygroundScreen(
     }
 }
 
-/** The realtime scene's controls: one microphone, in place of the clip list. */
+/** The conversation controls: one microphone. */
 @Composable
 private fun RealtimePanel(
     connected: Boolean,
@@ -388,7 +354,7 @@ private fun RealtimePanel(
             Text(
                 text = "The conversation runs on the backend — ASR, LLM and TTS — and its " +
                     "speech arrives here as PCM over a WebSocket. That audio goes to " +
-                    "controller.send(), exactly like the pre-recorded clips do.",
+                    "controller.send(), which accepts PCM16 from any source.",
                 color = DS.muted,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -396,40 +362,18 @@ private fun RealtimePanel(
     }
 }
 
-/**
- * The SDK callbacks, one row each.
- *
- * Scrolls within itself: beside the clip list it gets half the width and a fixed
- * height, and these rows are worth reading while the avatar answers rather than being
- * cut off.
- */
+/** The SDK callbacks, one row each. */
 @Composable
-private fun StatusCard(
-    statusRows: List<StatusRow>,
-    /**
-     * Whether this card sits in a row of a fixed height, beside the clip list.
-     *
-     * It decides whether the rows scroll inside the card. Scrolling needs a bounded
-     * height, and on its own in the LazyColumn this card has none — the list hands its
-     * items unbounded height, and a scroller given that throws rather than guessing. So
-     * beside the clips it scrolls within its 240dp; alone it is as tall as its rows and
-     * the page scrolls instead.
-     */
-    bounded: Boolean,
-) {
+private fun StatusCard(statusRows: List<StatusRow>) {
     Card(
-        modifier = if (bounded) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
             .border(1.dp, DS.panelBorder, RoundedCornerShape(14.dp)),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = DS.panel),
     ) {
         Column(
             modifier = Modifier
-                .then(
-                    if (bounded) {
-                        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                    } else Modifier.fillMaxWidth()
-                )
+                .fillMaxWidth()
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -472,63 +416,6 @@ private fun StatusCard(
     }
 }
 
-/**
- * The clips this scene can send. Scrolls within itself, for the same reason as
- * [StatusCard].
- */
-@Composable
-private fun ClipsCard(
-    sendingPath: String?,
-    onSendPcm: (PcmAsset) -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxSize()
-            .border(1.dp, DS.panelBorder, RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = DS.panel),
-    ) {
-        Column(
-            // Always bounded: this card only ever appears inside the fixed-height row
-            // beside the status card, which is what makes scrolling here legal.
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("Audio Files", color = DS.title, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            PCM_ASSETS.forEach { asset ->
-                val isSending = sendingPath == asset.path
-                OutlinedButton(
-                    onClick = { onSendPcm(asset) },
-                    enabled = sendingPath == null,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (isSending) DS.blue else Color.Transparent,
-                        contentColor = if (isSending) Color.White else DS.text,
-                    ),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                    Text(
-                        text = if (isSending) "..." else "\u25b6 ${asset.name}",
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                    )
-                }
-            }
-            // Plain text under the list rather than behind a tappable "?": one short
-            // line is cheaper to read than a dialog is to open and dismiss.
-            Text(
-                AUDIO_SOURCE_HINT,
-                color = DS.muted,
-                fontSize = 9.sp,
-                lineHeight = 12.sp,
-            )
-        }
-    }
-}
 
 /**
  * One of the two controls over the avatar.

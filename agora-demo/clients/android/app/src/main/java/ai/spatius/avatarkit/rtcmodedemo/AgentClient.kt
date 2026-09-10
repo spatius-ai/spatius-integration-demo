@@ -9,12 +9,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-/**
- * Everything the client needs to join the RTC channel, from `POST /api/session`.
- *
- * These are the Agora fields of that response. The server can also answer with a
- * LiveKit room, but never to this app — see [AgentClient.createSession].
- */
+/** Everything the client needs to join the Agora channel, from `POST /api/session`. */
 data class SessionCredentials(
     /** Used by stop to find the session again. */
     val sessionId: String,
@@ -38,23 +33,6 @@ data class SessionCredentials(
     val spatiusRegion: String,
 )
 
-/**
- * What the server has configured, from `GET /api/config`.
- *
- * Read, never written. Credentials belong in the server's `.env` — copying secrets
- * across apps on a phone is miserable, and the IME mangles them: auto-capitalization
- * and autocorrect leave damage that is invisible afterwards. One copy in `.env` covers
- * every client.
- */
-data class ServerConfig(
-    val avatarId: String,
-    /**
-     * Which settings the server still needs, in the order the config screen lists
-     * them. Every key the Agora demo server can be missing is an Agora or Spatius one.
-     */
-    val missingAgora: List<String>,
-)
-
 /** Talks to the Agora demo server. */
 object AgentClient {
 
@@ -66,37 +44,20 @@ object AgentClient {
     private val JSON = "application/json".toMediaType()
 
     /**
-     * What the server has configured. Called on the config screen, before anything is
-     * started, so it must not create a session — this costs nothing and bills nothing.
-     */
-    suspend fun fetchConfig(baseUrl: String): ServerConfig = withContext(Dispatchers.IO) {
-        val json = JSONObject(get(baseUrl, "/api/config"))
-        val missing = json.optJSONArray("missing")
-        ServerConfig(
-            avatarId = json.optString("avatarId", ""),
-            missingAgora = missing?.let { arr -> (0 until arr.length()).map { arr.getString(it) } }
-                ?: emptyList(),
-        )
-    }
-
-    /**
      * Start a session and get the credentials to join it.
+     *
+     * The avatar id is the only thing sent: it is the character the user picked, and
+     * the only genuinely per-session thing this app knows. The credentials and the
+     * conversation language are the server's own `.env`.
      *
      * ⚠️ **Billing starts here.** [stopSession] has to be called on the way out; the
      * channel's own idle timeout is a backstop, and the minute it waits is billed.
-     *
-     * `transport: "agora"` is still sent on every request, a leftover from when one
-     * server served both transports; the Agora demo server ignores it. Harmless, and
-     * it keeps this client working against an older combined server too.
      */
     suspend fun createSession(
         baseUrl: String,
-        language: String,
         avatarId: String = "",
     ): SessionCredentials = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
-            put("transport", "agora")
-            put("language", language)
             if (avatarId.isNotEmpty()) put("avatarId", avatarId)
         }
         val json = JSONObject(post(baseUrl, "/api/session", body))
@@ -126,15 +87,6 @@ object AgentClient {
 
     private fun normalize(baseUrl: String) = baseUrl.trim().trimEnd('/')
 
-    private fun get(baseUrl: String, path: String): String {
-        val request = Request.Builder().url(normalize(baseUrl) + path).build()
-        http.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw Exception(serverMessage(body, response.code))
-            return body
-        }
-    }
-
     private fun post(baseUrl: String, path: String, body: JSONObject): String {
         val request = Request.Builder()
             .url(normalize(baseUrl) + path)
@@ -148,18 +100,12 @@ object AgentClient {
     }
 
     /**
-     * The server's own wording for a failure, so a missing credential names itself
+     * The server's own wording for a failure, so an upstream problem names itself
      * rather than arriving as "HTTP 500".
      */
     private fun serverMessage(body: String, code: Int): String {
         val json = runCatching { JSONObject(body) }.getOrNull()
             ?: return "Server returned HTTP $code."
-        json.optJSONArray("missingKeys")?.let { arr ->
-            if (arr.length() > 0) {
-                val keys = (0 until arr.length()).joinToString(", ") { arr.getString(it) }
-                return "The server is missing: $keys"
-            }
-        }
         return json.optString("error").ifEmpty { "Server returned HTTP $code." }
     }
 }

@@ -41,11 +41,15 @@ flowchart LR
 
 ## Quick Start
 
+Everything is configured once, on the server. Clients hold no credentials and no
+settings: they fetch what they need to boot from `/api/config` and open straight on
+the playground.
+
 ```bash
-# 1. Configure backend
+# 1. Configure the server
 cd servers/python
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your credentials — the server refuses to start until they are filled in
 
 # 2. Start everything
 cd ../..
@@ -54,10 +58,12 @@ cd ../..
 
 The start script will:
 - Detect your LAN IP
-- Auto-configure Android `local.properties` and iOS `Config.swift` with the backend URL
-- Start the backend and frontend
+- Auto-configure Android `local.properties`, iOS `Config.swift` and Flutter
+  `lib/config.dart` with the server URL
+- Start the server and the React web client
 
-Then open `http://localhost:5173` for the React web client, or open Android Studio / Xcode and build & run — no manual IP configuration needed.
+Then open `http://localhost:5180` for the React web client, or open Android Studio /
+Xcode and build & run — no manual IP configuration needed.
 
 For mobile-only development (no Web frontend):
 
@@ -67,18 +73,32 @@ For mobile-only development (no Web frontend):
 
 ## Web Clients
 
-The React, Vue, vanilla, and Next.js clients connect to the backend WebSocket at `ws://localhost:8765/ws/agent` and fetch App ID / region from `/api/config`.
+The React, Vue, vanilla, and Next.js clients connect to the server's WebSocket at
+`ws://localhost:8765/ws/agent` and fetch the App ID, region, avatar id and sample
+rate from `/api/config` on load.
 
 ```bash
 cd clients/web/react   # or vue/ vanilla/ nextjs-direct/ nextjs-iframe/
-cp .env.example .env
+cp .env.example .env   # only if the server is not on the same host
 pnpm install
 pnpm dev
 ```
 
+| Client | Dev URL |
+|---|---|
+| `react/` | http://localhost:5180 |
+| `vue/` | http://localhost:5181 |
+| `vanilla/` | http://localhost:5182 |
+| `nextjs-direct/` | http://localhost:3010 |
+| `nextjs-iframe/` | http://localhost:3011 |
+
 ## Android / iOS / Flutter
 
-Android and iOS clients connect to the backend WebSocket. The `start.sh` script auto-configures the backend URL.
+The mobile clients connect to the same WebSocket. `start.sh` auto-configures the
+server URL in each of them; set it by hand only if you run the server another way —
+`BACKEND_MODE_URL` in `clients/android/local.properties`, `backendModeURL` in
+`clients/ios/AvatarDemo/Config.swift`, `backendModeURL` in
+`clients/flutter/lib/config.dart`.
 
 - **Android**: Open `clients/android/` in Android Studio and run
 - **iOS**: Open `clients/ios/AvatarDemo.xcodeproj` in Xcode and run
@@ -100,9 +120,7 @@ backend-mode/
 │   ├── ios/              # SwiftUI
 │   └── flutter/          # Flutter (iOS + Android)
 ├── servers/
-│   ├── python/           # WebSocket server + AI pipeline
-│   ├── nodejs/           # Placeholder / reference notes
-│   └── go/               # Placeholder / reference notes
+│   └── python/           # WebSocket server + AI pipeline
 └── README.md
 ```
 

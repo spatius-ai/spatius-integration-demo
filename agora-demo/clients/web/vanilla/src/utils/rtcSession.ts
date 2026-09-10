@@ -50,31 +50,24 @@ export function serverUrl(): string {
   return `${location.protocol}//${location.hostname}:8790`
 }
 
+/**
+ * What the server tells a client on boot.
+ *
+ * No credential is in it. Everything the demo is configured with — the API key, the
+ * Agora certificate, the pipeline id, the conversation language — lives in the
+ * server's `.env` and never leaves that machine.
+ */
 export interface ServerConfig {
+  /** The avatar loaded when the user has not picked one. */
   avatarId: string
-  SPATIUS_APP_ID?: string
-  SPATIUS_API_KEY?: string
-  SPATIUS_AVATAR_ID?: string
-  AGORA_APP_ID?: string
-  AGORA_APP_CERTIFICATE?: string
-  AGORA_PIPELINE_ID?: string
-  /** What the server is still waiting on. */
-  missing: string[]
+  /** Which language the conversation runs in, for display only. */
+  language: string
 }
 
 export async function fetchConfig(): Promise<ServerConfig> {
   const res = await fetch(`${serverUrl()}/api/config`)
   if (!res.ok) throw new Error(`Cannot reach the demo server (HTTP ${res.status})`)
   return (await res.json()) as ServerConfig
-}
-
-export async function saveConfig(values: Record<string, string>): Promise<void> {
-  const res = await fetch(`${serverUrl()}/api/config`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(values),
-  })
-  if (!res.ok) throw new Error(`Could not save configuration (HTTP ${res.status})`)
 }
 
 /** What the server hands back to join with. */
@@ -114,7 +107,6 @@ export interface SessionCallbacks {
   onDownload?: (percent: number) => void
   /** The avatar's first rendered frame — what dismisses the overlay, not "connected". */
   onRendered?: () => void
-  onError?: (message: string) => void
 }
 
 export class RtcSession {
@@ -143,7 +135,12 @@ export class RtcSession {
     return this.micStream !== null
   }
 
-  async start(container: HTMLElement, avatarId?: string, language = 'en'): Promise<void> {
+  /**
+   * `avatarId` is the only thing sent: the character the user picked, which the server
+   * needs so the ConvoAI agent brings that same avatar into the channel. Language and
+   * credentials are the server's own settings.
+   */
+  async start(container: HTMLElement, avatarId?: string): Promise<void> {
     if (this.started) return
     this.started = true
 
@@ -153,22 +150,13 @@ export class RtcSession {
     const res = await fetch(`${serverUrl()}/api/session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ language }),
+      body: JSON.stringify({ avatarId: avatarId ?? '' }),
     })
-    const body = await res.text()
     if (!res.ok) {
       this.started = false
-      try {
-        const parsed = JSON.parse(body)
-        if (parsed.missingKeys?.length) {
-          throw new Error(`Server is missing: ${parsed.missingKeys.join(', ')}`)
-        }
-      } catch (err) {
-        if (err instanceof Error && err.message.startsWith('Server is missing')) throw err
-      }
       throw new Error(`Could not start a session (HTTP ${res.status})`)
     }
-    const session = JSON.parse(body) as Session
+    const session = (await res.json()) as Session
     this.sessionId = session.sessionId
     this.agentUid = session.agentUid ?? 0
 

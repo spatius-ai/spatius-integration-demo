@@ -13,7 +13,7 @@ export default defineConfig({
   ],
   root: __dirname,
   // The Next.js host serves this app under /iframe/ in both dev (rewrite to
-  // :5178) and production (copied into public/iframe/). Without a matching base
+  // :5188) and production (copied into public/iframe/). Without a matching base
   // the generated asset URLs are root-relative, so the browser asks the Next.js
   // origin for /src/main.tsx and gets a 404.
   base: '/iframe/',

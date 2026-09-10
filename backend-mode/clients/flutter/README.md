@@ -24,7 +24,7 @@ Flutter client for [Backend Mode](../../README.md). All AI processing (ASR → L
    // static const String backendModeURL = 'http://192.168.x.x:8765';  // physical device
    ```
 
-   > **Tip:** Run `../../start.sh` to auto-configure `backendModeURL` from the backend `.env`. The client fetches App ID and region from the backend `/api/config` endpoint.
+   > **Tip:** Run `../../start.sh` to auto-configure `backendModeURL`. It is the only source for the address — there is nothing stored on the device.
 
 3. Run on iOS:
 
@@ -45,6 +45,15 @@ Flutter client for [Backend Mode](../../README.md). All AI processing (ASR → L
    ```bash
    flutter run
    ```
+
+## Boot flow
+
+There is no configuration screen. The app starts, reads `/api/config` from the
+backend, calls `AvatarSDK.initialize` with what comes back, and opens on the
+playground with the character the backend nominates. Every credential and every
+conversation option (language, region, voice) lives in the backend's `.env` — the only
+thing set on this side is the backend address, because it is how the app finds the
+backend at all. If the backend is unreachable the app shows the error and a **Retry**.
 
 ## How it works
 

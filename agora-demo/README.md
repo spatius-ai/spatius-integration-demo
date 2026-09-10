@@ -30,7 +30,8 @@ Agora     client ◄────  Agora channel  ────►  agent + avatar
 
 ```
 agora-demo/
-├── servers/python/      Flask server: signs tokens, starts and stops the ConvoAI agent
+├── servers/python/      Flask server: holds the config, signs tokens, starts and
+│                        stops the ConvoAI agent
 └── clients/
     ├── web/             vue · react · vanilla · nextjs-direct · nextjs-iframe
     ├── ios/             SwiftUI, on a physical device
@@ -39,7 +40,9 @@ agora-demo/
 
 ## Quick Start
 
-The server holds the credentials, so it goes first:
+Everything this demo is configured with lives in the server's `.env` — the Spatius and
+Agora credentials, the conversation language, and (in the Agora console) the voice.
+Nothing is entered on a client, so the server goes first:
 
 ```bash
 cd servers/python
@@ -48,7 +51,8 @@ uv sync
 uv run python server.py
 ```
 
-Then a client, in a second terminal:
+It refuses to start while a required key is missing, and names the ones it is waiting
+on. Then a client, in a second terminal:
 
 ```bash
 cd clients/web/vue      # or react, vanilla, nextjs-direct, nextjs-iframe
@@ -56,15 +60,28 @@ pnpm install
 pnpm dev
 ```
 
-Anything left blank in `.env` can be filled in on the client's configuration page.
-Pick a conversation language there, press **Enter the room**, choose a character, and
-talk. The mobile clients read the same server: point them at the LAN address the server
-prints on startup — see [`clients/ios`](./clients/ios/README.md) and
-[`clients/android`](./clients/android/).
+The page opens straight on the playground: choose a character and talk. If the server
+is not up it says so, with a retry.
+
+The mobile clients read the same server, but they cannot reach this machine's
+localhost — point them at the LAN address the server prints on startup. See
+[`clients/ios`](./clients/ios/README.md) and
+[`clients/android`](./clients/android/README.md).
 
 The server's [README](./servers/python/README.md) covers the Agora console setup (App
 Certificate, publishing the agent, the sample rate), the API, and the ways a session can
 fail without an error.
+
+## Where settings live
+
+| | Where |
+|---|---|
+| Spatius App ID / API Key / region / default avatar | `servers/python/.env` |
+| Agora App ID / certificate / pipeline id / sample rate | `servers/python/.env` |
+| Conversation language (`CONVERSATION_LANGUAGE`) | `servers/python/.env` |
+| ASR, LLM, TTS and the voice | the published agent in Agora's console |
+| The demo server's address | web: `VITE_`/`NEXT_PUBLIC_DEMO_SERVER_URL` (see each client's `.env.example`) · Android: `RTC_MODE_URL` in `local.properties` · iOS: `Config.swift` |
+| The character | picked in the playground, and the only thing a client sends |
 
 ## Ports
 

@@ -8,7 +8,6 @@ import AvatarKit
     // registered whether or not this demo acts on it: which hooks exist is part of
     // what a reference client is for, and a row that only appears once it has fired
     // is a row nobody knows to expect.
-    @Published var connectionState: String = "\(ConnectionState.disconnected)"
     @Published var conversationState: String = "\(ConversationState.idle)"
     /// onFrameRateInfo — nil until the monitor has reported once.
     @Published var fps: Int?
@@ -19,59 +18,35 @@ import AvatarKit
     @Published var backendConnected = false
     @Published var backendConnecting = false
     @Published var backendMicActive = false
-    /// Which clip is streaming, so only its own row says so.
-    @Published var playingClip: String?
 
-    private var isConnected = false
     private var avatarController: AvatarController?
 
-    /// Where the server is. Told once by the view, since the address is typed on the
-    /// configuration screen rather than compiled in — a phone cannot reach the dev
-    /// machine's localhost.
-    var backendBaseURL = Config.backendModeURL
-
-    /// Which language the agent should listen and reply in, chosen on the
-    /// configuration screen. Fixed for the session: recognition, the voice and the
-    /// persona are all set when the agent session is built.
-    var language = "en"
+    /// Where the server is: `Config.backendModeURL`, and nothing else.
+    ///
+    /// The one setting that cannot come from the server itself, since it is how the
+    /// app finds it. `../../start.sh` fills in this machine's LAN address.
+    let backendBaseURL = Config.backendModeURL
 
     /// Whether `start_agent` has been sent on this connection.
     private var agentStarted = false
 
     /// Ask the server to bring the agent up, once per connection.
     ///
-    /// The pre-recorded scene never calls this — it costs a model session, and a clip
-    /// needs no agent at all.
+    /// Brought up on the first press rather than on launch: it costs a model session,
+    /// and someone who only opened the app to look at the avatar should not pay for
+    /// one. No language is sent — recognition, the voice and the persona are fixed
+    /// when the agent session is built, so they are the server's
+    /// `CONVERSATION_LANGUAGE`.
     private func ensureAgent() {
         guard !agentStarted, let ws = hostWsTask, ws.state == .running else { return }
         agentStarted = true
-        ws.send(.string(jsonString(["type": "start_agent", "language": language]))) { _ in }
+        ws.send(.string(jsonString(["type": "start_agent"]))) { _ in }
     }
 
     func setAvatarController(_ controller: AvatarController) {
         avatarController = controller
-        avatarController?.onConnectionState = { [weak self] state in
-            guard let self else { return }
-            self.connectionState = "\(state)"
-            switch state {
-            case .connected:
-                self.isConnected = true
-            case .disconnected, .failed:
-                self.isConnected = false
-            case .connecting:
-                break
-            @unknown default:
-                break
-            }
-        }
         avatarController?.onConversationState = { [weak self] state in
-            guard let self else { return }
-            self.conversationState = "\(state)"
-            // The server streams a clip and reports nothing when it finishes, so the
-            // avatar going back to idle is what says playback is over.
-            if "\(state)" == "\(ConversationState.idle)" {
-                self.playingClip = nil
-            }
+            self?.conversationState = "\(state)"
         }
         avatarController?.onError = { [weak self] error in
             self?.errorMessage = error.localizedDescription
@@ -94,18 +69,6 @@ import AvatarKit
         ws.send(.string(jsonString(["type": "set_avatar", "avatarId": avatarId]))) { _ in }
     }
 
-    /// Ask the server to stream one of its clips into the avatar.
-    ///
-    /// The clips live on the server and never pass through this app: what arrives
-    /// here is the encoded audio and motion to render, exactly as in the realtime
-    /// scene. Only where the audio came from differs.
-    func playSample(_ clip: String) {
-        guard let ws = hostWsTask, ws.state == .running else { return }
-        playingClip = clip
-        ws.send(.string(jsonString(["type": "play_sample", "clip": clip]))) { _ in }
-    }
-
-    func start() { avatarController?.start() }
     func pause() { avatarController?.pause() }
     func resume() { avatarController?.resume() }
 
@@ -127,8 +90,6 @@ import AvatarKit
 
     // MARK: - Backend Mode
 
-    /// Derived from the address typed on the configuration screen, so there is only
-    /// ever one thing to enter.
     private var backendModeURL: URL {
         URL(string: BackendClient.agentURL(baseURL: backendBaseURL))!
     }
@@ -175,8 +136,8 @@ import AvatarKit
         guard backendConnected, !backendMicActive else { return }
 
         // Brought up on the first press rather than on connect: the agent costs a
-        // model session, and someone who only wants the pre-recorded scene should not
-        // pay for one by opening the app.
+        // model session, and someone who only opened the app to look at the avatar
+        // should not pay for one.
         ensureAgent()
 
         // .voiceChat asks for the echo-cancelling route, which keeps the avatar's own
@@ -258,16 +219,12 @@ import AvatarKit
         audioEngine?.stop()
         // Turned back off with the tap: voice processing stays on the node otherwise,
         // and it keeps the session in its duplex route — which thins out the avatar's
-        // voice on the next clip even though nothing is recording.
+        // voice on the next reply even though nothing is recording.
         if #available(iOS 13.0, *) {
             try? audioEngine?.inputNode.setVoiceProcessingEnabled(false)
         }
         audioEngine = nil
         backendMicActive = false
-
-        if let ws = hostWsTask, ws.state == .running {
-            ws.send(.string(jsonString(["type": "mic_end"]))) { _ in }
-        }
     }
 
     func backendSendText(_ text: String) {
@@ -281,7 +238,7 @@ import AvatarKit
             backendConnect()
         }
 
-        let payload = jsonString(["type": "text_query", "text": trimmed])
+        let payload = jsonString(["type": "text", "text": trimmed])
 
         guard let ws = hostWsTask, ws.state == .running else {
             // Queue send after connection
@@ -373,12 +330,7 @@ import AvatarKit
             controller.interrupt()
 
         case "error":
-            let errMsg = json["message"] as? String ?? "Unknown error"
-            errorMessage = errMsg
-            // A clip that never starts leaves its button on "..." forever: the
-            // release comes from the avatar returning to idle, and a turn that was
-            // rejected never enters playing in the first place.
-            playingClip = nil
+            errorMessage = json["message"] as? String ?? "Unknown error"
 
         default:
             break

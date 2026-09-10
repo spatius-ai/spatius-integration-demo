@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import type { AppConfig } from '../App.vue'
-import { RtcSession, stopSessionOnUnload } from '../utils/rtcSession'
+import { RtcSession, stopSessionOnUnload, type ServerConfig } from '../utils/rtcSession'
 import CharacterList from '../components/CharacterList.vue'
 import Toast from '../components/Toast.vue'
 import { useToast } from '../composables/useToast'
 
-const props = defineProps<{ config: AppConfig }>()
+const props = defineProps<{ config: ServerConfig }>()
 
 /**
  * The room, laid out like the other two modes: characters on the left, the avatar in
@@ -40,7 +39,7 @@ const agentReady = ref(false)
  * Whether the microphone has ever been opened in this room.
  *
  * Drives the green ring, which points at the mic the moment it becomes usable and
- * stops for good once it has been pressed — same as the character list and Start.
+ * stops for good once it has been pressed — same as the character list.
  * Not `!micOn`, or the ring would come back every time the mic is muted, long
  * after the user has learned where it is.
  */
@@ -56,7 +55,6 @@ async function enter(id: string, name: string) {
     onProgress: (text) => (status.value = text),
     onDownload: (percent) => (status.value = `Downloading avatar… ${percent}%`),
     onRendered: () => (rendered.value = true),
-    onError: (message) => notify(message),
   })
   session = next
 
@@ -65,7 +63,7 @@ async function enter(id: string, name: string) {
   const superseded = () => session !== next
 
   try {
-    await next.start(stageRef.value, id, props.config.language)
+    await next.start(stageRef.value, id)
     if (superseded()) return
     status.value = 'Connecting the agent…'
 
@@ -163,6 +161,10 @@ async function toggleMic() {
     <div class="playground-center">
       <div class="center-header">
         <span class="avatar-count">{{ characterName || 'Agora Demo' }}</span>
+        <!-- Which language to speak. It is fixed when the agent starts, so it is the
+             server's CONVERSATION_LANGUAGE rather than anything chosen here — worth
+             showing, since speaking the other one transcribes to nothing. -->
+        <span class="lang-badge">{{ props.config.language === 'zh' ? '中文' : 'English' }}</span>
       </div>
 
       <div class="canvas-stage">

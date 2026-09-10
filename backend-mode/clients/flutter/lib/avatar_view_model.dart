@@ -11,7 +11,6 @@ import 'config.dart';
 
 class AvatarViewModel extends ChangeNotifier {
   // --- Public state ---
-  String connectionState = 'disconnected';
   String conversationState = 'idle';
   String? errorMessage;
   ak.Avatar? avatar;
@@ -28,8 +27,8 @@ class AvatarViewModel extends ChangeNotifier {
   ///
   /// One id, not a map keyed by the server's `turnId`: the SDK mints a fresh id as a
   /// reply goes on, and the latest is the one the frames belong to. Keeping the first
-  /// leaves every later batch addressed to an id the SDK has moved past, and the clip
-  /// never finishes playing.
+  /// leaves every later batch addressed to an id the SDK has moved past, and the
+  /// reply never finishes playing.
   String? _conversationId;
 
   /// Serialises what reaches the SDK.
@@ -52,25 +51,19 @@ class AvatarViewModel extends ChangeNotifier {
   bool agentConnecting = false;
   bool agentReady = false;
 
-  /// Whether `start_agent` has been sent on this connection. Sent once, and only by
-  /// the realtime scene: an agent costs a model session and a clip needs none.
+  /// Whether `start_agent` has been sent on this connection. Sent once: an agent
+  /// costs a model session, and someone who only opened the app to look at the
+  /// avatar should not pay for one.
   bool _agentStarted = false;
 
   /// What has been said so far, as (role, text).
   List<(String, String)> transcript = [];
 
-  /// The clips the server can play, and which one is mid-flight.
-  List<({String name, String clip})> clips = [];
-  String? playingClip;
-
-  /// Which language the realtime conversation runs in; set from the config screen.
-  String language = 'en';
-
-  /// Where the server is, as typed on the config screen.
+  /// Where the server is: [Config.backendModeURL], and nothing else.
   ///
-  /// Not the compile-time constant: that defaults to localhost, which a real device
-  /// cannot reach — the address has to be the one the user actually entered.
-  String baseUrl = Config.backendModeURL;
+  /// The one setting that cannot come from the server itself, since it is how the
+  /// app finds it. `../../start.sh` fills in this machine's LAN address.
+  static const String baseUrl = Config.backendModeURL;
 
   // Microphone
   final AudioRecorder _recorder = AudioRecorder();
@@ -80,14 +73,6 @@ class AvatarViewModel extends ChangeNotifier {
 
   void setAvatarController(ak.AvatarController controller) {
     _controller = controller;
-
-    controller.onConnectionState = (state, errorMsg) {
-      connectionState = state.name;
-      if (state == ak.ConnectionState.connected) {
-        // no-op for Backend Mode
-      }
-      notifyListeners();
-    };
 
     controller.onConversationState = (state) {
       conversationState = state.name;
@@ -101,8 +86,6 @@ class AvatarViewModel extends ChangeNotifier {
   }
 
   // --- Lifecycle ---
-
-  void start() => _controller?.start();
 
   void pause() => _controller?.pause();
 
@@ -225,10 +208,6 @@ class AvatarViewModel extends ChangeNotifier {
         final isLast = json['isLast'] as bool? ?? false;
         _sdkQueue = _sdkQueue.then((_) async {
           _conversationId = await controller.yieldAudioData(audioData, end: isLast);
-          if (isLast) {
-            playingClip = null;
-            notifyListeners();
-          }
         });
 
       case 'avatar_frames':
@@ -249,11 +228,9 @@ class AvatarViewModel extends ChangeNotifier {
 
       case 'interrupt':
         _conversationId = null;
-        playingClip = null;
         controller.interrupt();
 
       case 'error':
-        playingClip = null;
         errorMessage = json['message'] as String? ?? 'Unknown error';
         notifyListeners();
     }
@@ -262,12 +239,15 @@ class AvatarViewModel extends ChangeNotifier {
   // --- Backend Mode: Microphone ---
 
   /// Ask the server to start the conversational agent, once per connection.
+  ///
+  /// No language is sent: recognition, the voice and the persona are fixed when the
+  /// agent session is built, so they are the server's `CONVERSATION_LANGUAGE`.
   void _ensureAgent() {
     if (_agentStarted || !backendConnected) return;
     _agentStarted = true;
     agentConnecting = true;
     notifyListeners();
-    _sendWsMessage({'type': 'start_agent', 'language': language});
+    _sendWsMessage({'type': 'start_agent'});
   }
 
   /// Forget the agent. It belongs to the socket, so a new connection needs a new one.
@@ -275,17 +255,6 @@ class AvatarViewModel extends ChangeNotifier {
     _agentStarted = false;
     agentConnecting = false;
     agentReady = false;
-  }
-
-  /// Ask the server to stream one of its clips into the avatar.
-  ///
-  /// The clips live on the server and never pass through this app: what arrives back
-  /// is the same audio-plus-motion pair the realtime scene produces.
-  void playSample(String clip) {
-    if (!backendConnected) backendConnect();
-    playingClip = clip;
-    notifyListeners();
-    _sendWsMessage({'type': 'play_sample', 'clip': clip});
   }
 
   Future<void> backendStartMic() async {
@@ -335,7 +304,6 @@ class AvatarViewModel extends ChangeNotifier {
     _micSubscription = null;
     _recorder.stop();
     backendMicActive = false;
-    _sendWsMessage({'type': 'mic_end'});
     notifyListeners();
   }
 

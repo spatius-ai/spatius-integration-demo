@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Where the demo server is. The only thing this app is configured with — everything
+// else lives in the server's .env. See local.properties.example.
 val rtcModeUrl: String = rootProject.file("local.properties")
     .takeIf { it.exists() }
     ?.readLines()
@@ -23,8 +25,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "RTC_MODE_URL", "\"${rtcModeUrl}\"")
     }
@@ -60,7 +60,7 @@ dependencies {
     // so the Agora SDK has to be brought in explicitly alongside it.
     //
     // Agora rather than LiveKit, and not a choice: this is the only stack the Android
-    // RTC SDK speaks. The app says so on every request — see AgentClient.createSession.
+    // RTC SDK speaks, which is why this client lives in the Agora demo and nowhere else.
     implementation("ai.spatius:avatarkit-rtc:1.0.1")
     implementation("io.agora.rtc:full-sdk:4.6.2")
     implementation(libs.androidx.core.ktx)
@@ -69,20 +69,11 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    // Mic / Stop for the one control this mode has. Extended rather than
+    // Mic / Stop for the one control this demo has. Extended rather than
     // core: core carries neither.
     implementation("androidx.compose.material:material-icons-extended")
-    implementation(libs.androidx.navigation.compose)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
 kotlin {

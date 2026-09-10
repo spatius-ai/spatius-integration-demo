@@ -66,7 +66,6 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     // Stop / Pause / PlayArrow for the controls over the avatar.
     implementation("androidx.compose.material:material-icons-extended")
-    implementation(libs.androidx.navigation.compose)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

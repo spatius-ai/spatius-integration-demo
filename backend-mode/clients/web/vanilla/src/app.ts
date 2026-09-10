@@ -1,40 +1,80 @@
-import { DrivingServiceMode } from '@spatius/avatarkit'
-import { createConfiguration, type AppConfig } from './views/configuration'
+import { AvatarSDK, DrivingServiceMode, LogLevel } from '@spatius/avatarkit'
+import { fetchConfig } from './utils/backendClient'
 import { createPlayground } from './views/playground'
 
 const MODE = DrivingServiceMode.backend
 
+/**
+ * The whole boot path.
+ *
+ * There is nothing to ask the user: in Backend Mode the server holds the Motion
+ * Server connection and every credential with it, so this client reads what it needs
+ * to render — app id, region, sample rates, the avatar to open with — from
+ * `/api/config` and initializes the SDK with it. No session token is involved; this
+ * SDK instance only renders what arrives over the WebSocket.
+ */
 export function createApp(root: HTMLElement) {
-  let step: 1 | 2 = 1
-  let config: AppConfig | null = null
-
   const app = document.createElement('div')
   app.className = 'app'
   root.appendChild(app)
 
-  function render() {
+  function showBoot(body: (box: HTMLElement) => void) {
+    app.className = 'app boot-state'
     app.innerHTML = ''
-
-    // View 1: Configuration
-    const v1Wrap = document.createElement('div')
-    v1Wrap.className = `view ${step === 1 ? 'active' : ''}`
-    v1Wrap.appendChild(
-      createConfiguration(MODE, (c) => {
-        config = c
-        step = 2
-        render()
-      }),
-    )
-    app.appendChild(v1Wrap)
-
-    // View 2: Playground
-    const v2Wrap = document.createElement('div')
-    v2Wrap.className = `view ${step === 2 ? 'active' : ''}`
-    if (config && step === 2) {
-      v2Wrap.appendChild(createPlayground(config))
-    }
-    app.appendChild(v2Wrap)
+    const box = document.createElement('div')
+    box.className = 'boot-box'
+    body(box)
+    app.appendChild(box)
   }
 
-  render()
+  function showStarting() {
+    showBoot((box) => {
+      const hint = document.createElement('p')
+      hint.className = 'boot-hint'
+      hint.textContent = 'Starting…'
+      box.appendChild(hint)
+    })
+  }
+
+  function showError(message: string) {
+    showBoot((box) => {
+      box.innerHTML = `
+        <h1>Cannot reach the Backend Mode server</h1>
+        <p class="boot-error"></p>
+        <p class="boot-hint">
+          Start it with <code>cd servers/python &amp;&amp; uv run python -m app.main</code>.
+          It reads every credential from its own <code>.env</code> and reports any
+          that is missing.
+        </p>
+      `
+      // textContent rather than into the template: the message comes from a failed
+      // fetch and may carry a URL or angle brackets.
+      box.querySelector('.boot-error')!.textContent = message
+      const retry = document.createElement('button')
+      retry.className = 'primary'
+      retry.textContent = 'Retry'
+      retry.addEventListener('click', () => void boot())
+      box.appendChild(retry)
+    })
+  }
+
+  async function boot() {
+    showStarting()
+    try {
+      const config = await fetchConfig()
+      await AvatarSDK.initialize(config.appId, {
+        region: config.region,
+        drivingServiceMode: MODE,
+        audioFormat: { channelCount: 1, sampleRate: config.inputSampleRate },
+        logLevel: LogLevel.all,
+      })
+      app.className = 'app'
+      app.innerHTML = ''
+      app.appendChild(createPlayground(config))
+    } catch (e: any) {
+      showError(e?.message ?? 'Could not start')
+    }
+  }
+
+  void boot()
 }

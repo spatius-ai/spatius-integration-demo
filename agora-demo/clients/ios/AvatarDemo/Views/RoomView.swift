@@ -2,17 +2,12 @@ import SwiftUI
 
 /// The room: the avatar and the microphone.
 ///
-/// Thinner than the other two modes' playgrounds, and the reason is the mode itself:
-/// the avatar is in the call, so there is nothing here that drives it. No clip list —
-/// there is no pre-recorded scene. No pause, resume or interrupt — those act on local
-/// playback, and there is none: the audio is a live RTC track. The Web client's room is
-/// the same shape, for the same reason.
+/// Thinner than the other demos' playgrounds, and the reason is this path itself: the
+/// avatar is in the call, so there is nothing here that drives it. No pause, resume or
+/// interrupt — those act on local playback, and there is none: the audio is a live RTC
+/// track. The Web client's room is the same shape, for the same reason.
 struct RoomView: View {
-    let baseURL: String
-    let language: Lang
-
     @StateObject private var session = AvatarRtcSession()
-    @Environment(\.dismiss) private var dismiss
 
     @State private var showCharacters = false
     @State private var selectedCharacterId = ""
@@ -24,7 +19,7 @@ struct RoomView: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 16)
-        .navigationTitle("RTC Mode")
+        .navigationTitle("Agora Demo")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -34,8 +29,7 @@ struct RoomView: View {
         .sheet(isPresented: $showCharacters) { characterSheet }
         .task {
             await session.prepare(
-                baseURL: baseURL,
-                language: language.rawValue,
+                baseURL: Config.serverURL,
                 avatarId: selectedCharacterId
             )
         }
@@ -67,10 +61,10 @@ struct RoomView: View {
                 }
             }
 
-            // Nothing over the avatar here. The other two modes put pause and interrupt
-            // there because they drive playback; in RTC Mode the avatar is in the call
-            // and there is no local playback to act on — closing the microphone is the
-            // only control, and it lives below.
+            // Nothing over the avatar here. The other demos put pause and interrupt
+            // there because they drive playback; here the avatar is in the call and
+            // there is no local playback to act on — closing the microphone is the only
+            // control, and it lives below.
         }
         .frame(maxWidth: .infinity)
         .frame(height: 360)
@@ -82,8 +76,8 @@ struct RoomView: View {
 
     /// The microphone and nothing else.
     ///
-    /// Same as the Web client: in RTC Mode nothing is driven from this screen, so
-    /// closing the microphone is the only control there is.
+    /// Same as the Web client: nothing is driven from this screen, so closing the
+    /// microphone is the only control there is.
     private var controls: some View {
         VStack(spacing: 12) {
             micButton
@@ -97,7 +91,7 @@ struct RoomView: View {
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
             }
-            Text("RTC Mode is the one path where the avatar joins the call itself: "
+            Text("This is the one path where the avatar joins the call itself: "
                  + "audio travels on an RTC track and the motion rides along encoded in "
                  + "the video stream. Nothing is driven from this screen, and nothing "
                  + "streams through the server — it only issues the credentials to join.")
@@ -191,6 +185,6 @@ struct RoomView: View {
         // Stopped before starting: the old session bills until it is, and the new avatar
         // needs an agent started against it.
         await session.stop()
-        await session.prepare(baseURL: baseURL, language: language.rawValue, avatarId: id)
+        await session.prepare(baseURL: Config.serverURL, avatarId: id)
     }
 }

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import atexit
+import json
 import logging
 import os
 import signal
@@ -38,7 +39,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from agent import AGENT_NAME, DEFAULT_AVATAR_ID
+from agent import AGENT_NAME, DEFAULT_AVATAR_ID, normalize_language
 
 ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(ENV_PATH)
@@ -57,15 +58,27 @@ HTTP_PORT = int(
     os.getenv("RTC_SERVER_PORT") or os.getenv("SERVER_PORT") or "8790"
 )
 
-# What a client may read and write, mirroring the other modes' config pages.
-# Secrets are included: this server runs on the user's own machine, and being able to
-# fill everything in on screen — from a phone, which has no .env to edit — matters
-# more than keeping them out of an API that has no auth anyway.
-COMMON_KEYS = ["SPATIUS_APP_ID", "SPATIUS_API_KEY", "SPATIUS_AVATAR_ID"]
-LIVEKIT_KEYS = ["LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET", "TTS_MODEL"]
-EDITABLE_KEYS = COMMON_KEYS + LIVEKIT_KEYS
+# Everything this demo needs is in .env — the client sends nothing but the character
+# it picked. The server checks these at startup and refuses to run without them, so a
+# missing key surfaces once, in the terminal, rather than as a session that fails at
+# the click.
+REQUIRED_KEYS = [
+    "SPATIUS_APP_ID",
+    "SPATIUS_API_KEY",
+    "LIVEKIT_URL",
+    "LIVEKIT_API_KEY",
+    "LIVEKIT_API_SECRET",
+]
 
-PLACEHOLDER_VALUES = {"your_spatius_api_key", "your_spatius_app_id", "replace_me"}
+PLACEHOLDER_VALUES = {"your_spatius_api_key", "your_spatius_app_id"}
+
+HINTS = {
+    "SPATIUS_APP_ID": "https://app.spatius.ai/apps",
+    "SPATIUS_API_KEY": "https://app.spatius.ai/apps",
+    "LIVEKIT_URL": "https://cloud.livekit.io — wss://your-project.livekit.cloud",
+    "LIVEKIT_API_KEY": "https://cloud.livekit.io — project settings, API keys",
+    "LIVEKIT_API_SECRET": "https://cloud.livekit.io — shown only once, at creation",
+}
 
 
 def _env(key: str, default: str = "") -> str:
@@ -76,88 +89,45 @@ def _is_placeholder(value: str) -> bool:
     return value.strip().lower() in PLACEHOLDER_VALUES
 
 
-# Editable but not required: these have working defaults, and reporting them as missing
-# would block the client on a setting it never has to touch.
-OPTIONAL_KEYS = {"SPATIUS_AVATAR_ID", "TTS_MODEL"}
-
-
 def _missing() -> list[str]:
     """Everything this demo needs that is still unset."""
-    return [
-        k
-        for k in EDITABLE_KEYS
-        if k not in OPTIONAL_KEYS and (not _env(k) or _is_placeholder(_env(k)))
-    ]
+    return [k for k in REQUIRED_KEYS if not _env(k) or _is_placeholder(_env(k))]
+
+
+def _language() -> str:
+    """Which language the conversation runs in — set once, in .env."""
+    return normalize_language(_env("CONVERSATION_LANGUAGE", "en"))
+
+
+def _check_env_or_exit() -> None:
+    """Refuse to start on an unfinished .env.
+
+    Checked here rather than at the first request: a demo that boots and then fails
+    one click later, with the reason on a browser console, is the slowest possible
+    way to learn that a key was never filled in.
+    """
+    missing = _missing()
+    if not missing:
+        return
+    print("\n  Cannot start: .env is incomplete.\n")
+    for key in missing:
+        print(f"    {key:<22} {HINTS.get(key, '')}")
+    print(f"\n  Fill these in at {ENV_PATH} (copy .env.example if it is not there yet).\n")
+    sys.exit(1)
 
 
 # ---------------------------------------------------------------- Config
 
 
-def _read_env_file() -> dict[str, str]:
-    if not ENV_PATH.exists():
-        return {}
-    existing: dict[str, str] = {}
-    for raw in ENV_PATH.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        existing[key.strip()] = value.strip()
-    return existing
-
-
 @app.get("/api/config")
 def read_config():
-    """What the client needs, plus whatever credentials are already saved.
+    """The little the client needs to boot, and nothing secret.
 
-    `missing` names each key still unset, so the config page can point at it rather
-    than failing at the click.
+    The App ID is public — it identifies the app to the SDK — so it goes out here;
+    the API key never leaves this process. It is all a client needs: the character
+    list is its own, and the avatar it picks rides on /api/session.
     """
-    saved = {
-        key: ("" if _is_placeholder(_env(key)) else _env(key)) for key in EDITABLE_KEYS
-    }
-    return jsonify(
-        {
-            **saved,
-            "avatarId": _env("SPATIUS_AVATAR_ID") or DEFAULT_AVATAR_ID,
-            "missing": _missing(),
-        }
-    )
-
-
-@app.post("/api/config")
-def write_config():
-    """Save what was filled in on the page, taking effect immediately.
-
-    Rewrites the whole file rather than appending: a repeated key resolves in a way
-    that is not obvious, and duplicates eventually produce the "I changed it and
-    nothing happened" problem. Keys already in the file that are not on the page are
-    carried over.
-    """
-    body = request.get_json(silent=True) or {}
-    updates = {k: str(v).strip() for k, v in body.items() if k in EDITABLE_KEYS}
-    # A blank field means "leave what is saved", not "erase it".
-    updates = {k: v for k, v in updates.items() if v}
-
-    merged = _read_env_file()
-    merged.update(updates)
-    lines = [
-        "# Written by the demo's config page. You can also edit this file directly.",
-        "",
-    ]
-    lines += [f"{k}={v}" for k, v in merged.items()]
-    ENV_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    for key, value in updates.items():
-        os.environ[key] = value
-
-    # The worker is a separate process and read .env at its own startup, so the
-    # values above never reach it. Restarting is what makes a save take effect
-    # without the user having to restart the server themselves.
-    _restart_worker()
-
-    logger.info("[config] saved %s", ", ".join(sorted(updates)) or "nothing")
-    return jsonify({"ok": True, "saved": sorted(updates)})
+    return jsonify({"appId": _env("SPATIUS_APP_ID")})
 
 
 # ---------------------------------------------------------------- Sessions
@@ -219,7 +189,7 @@ async def _reap_orphans() -> None:
             logger.warning("[reap] could not close %s: %s", name, exc)
 
 
-async def _create_room(room_name: str, language: str) -> None:
+async def _create_room(room_name: str, metadata: str) -> None:
     """Create the room and dispatch the agent into it.
 
     Dispatching is required: the worker registers under an agent name, and only an
@@ -240,10 +210,11 @@ async def _create_room(room_name: str, language: str) -> None:
                     name=room_name,
                     empty_timeout=120,
                     departure_timeout=20,
-                    # The language rides to the worker on the room: it is dispatched
-                    # into existence and has no other way of knowing which language
-                    # to listen and reply in.
-                    metadata=language,
+                    # The job's settings ride to the worker on the room: it is
+                    # dispatched into existence and has no other way of knowing
+                    # which avatar to join as, or which language to listen and
+                    # reply in.
+                    metadata=metadata,
                 )
             )
         except Exception:
@@ -268,27 +239,27 @@ def create_session():
 
     ⚠️ Billing starts here — the client must call /api/session/stop when it leaves.
     """
+    # The character the user picked is the only per-session choice there is;
+    # everything else — language, voice, credentials — is fixed in .env.
     body = request.get_json(silent=True) or {}
-    language = "zh" if str(body.get("language") or "en").lower().startswith("zh") else "en"
-    avatar_id = str(body.get("avatarId") or "").strip()
-
-    missing = _missing()
-    if missing:
-        return jsonify({"error": "invalid_server_env", "missingKeys": missing}), 500
+    avatar_id = str(body.get("avatarId") or "").strip() or _env("SPATIUS_AVATAR_ID") or DEFAULT_AVATAR_ID
 
     try:
-        return _create_livekit_session(avatar_id, language)
+        return _create_livekit_session(avatar_id)
     except Exception as exc:  # noqa: BLE001 — everything becomes a JSON error
         logger.error("[session] create failed: %s", exc)
         return jsonify({"error": str(exc)}), 500
 
 
-def _create_livekit_session(avatar_id: str, language: str):
+def _create_livekit_session(avatar_id: str):
     from livekit import api
 
     url, key, secret = _livekit_env()
     room_name = f"spatius-rtc-{uuid.uuid4().hex[:10]}"
-    _run(_create_room(room_name, language))
+    language = _language()
+    # JSON rather than a bare string: the worker needs both the language and the
+    # avatar the client picked, and a room carries exactly one metadata field.
+    _run(_create_room(room_name, json.dumps({"language": language, "avatarId": avatar_id})))
 
     token = (
         api.AccessToken(key, secret)
@@ -305,15 +276,14 @@ def _create_livekit_session(avatar_id: str, language: str):
     with _sessions_lock:
         _sessions.add(room_name)
 
-    logger.info("[session] created %s (%s)", room_name, language)
+    logger.info("[session] created %s (%s, %s)", room_name, language, avatar_id)
     return jsonify(
         {
             "sessionId": room_name,
             "roomName": room_name,
             "url": url,
             "token": token,
-            "spatiusAppId": _env("SPATIUS_APP_ID"),
-            "avatarId": avatar_id or _env("SPATIUS_AVATAR_ID") or DEFAULT_AVATAR_ID,
+            "avatarId": avatar_id,
         }
     )
 
@@ -346,13 +316,9 @@ def stop_session():
 
 @app.get("/health")
 def health():
-    return jsonify(
-        {
-            "ok": not _missing(),
-            "missing": _missing(),
-            "lanUrl": f"http://{_lan_ip()}:{HTTP_PORT}",
-        }
-    )
+    # No "missing" list: startup refuses an incomplete .env, so a server that
+    # answers at all is a configured one.
+    return jsonify({"ok": True, "lanUrl": f"http://{_lan_ip()}:{HTTP_PORT}"})
 
 
 # ---------------------------------------------------------------- Plumbing
@@ -418,9 +384,6 @@ def _start_worker() -> None:
     opens but the avatar never says anything", with no error on either side.
     """
     global _worker
-    if _missing():
-        logger.warning("[worker] not started — credentials are missing")
-        return
     _worker = subprocess.Popen(
         [sys.executable, str(Path(__file__).parent / "agent.py"), "start"],
         cwd=str(Path(__file__).parent),
@@ -456,30 +419,26 @@ def _stop_worker() -> None:
     _worker = None
 
 
-def _restart_worker() -> None:
-    _stop_worker()
-    _start_worker()
-
-
 atexit.register(_stop_worker)
 
 
 if __name__ == "__main__":
+    _check_env_or_exit()
+
     lan = _lan_ip()
     print("\n  LiveKit demo server")
     print(f"  HTTP  http://0.0.0.0:{HTTP_PORT}   (LAN: http://{lan}:{HTTP_PORT})\n")
 
     _start_worker()
 
-    if not _missing():
-        # Anything left over from a previous run is closed before this one starts.
-        # Ongoing cleanup is LiveKit's: empty_timeout and departure_timeout reap a
-        # room whose participants have gone, which together with the client's own
-        # stop covers every way out of a session.
-        try:
-            _run(_reap_orphans())
-        except Exception as exc:  # noqa: BLE001 — startup must not fail over this
-            logger.warning("[reap] skipped: %s", exc)
+    # Anything left over from a previous run is closed before this one starts.
+    # Ongoing cleanup is LiveKit's: empty_timeout and departure_timeout reap a
+    # room whose participants have gone, which together with the client's own
+    # stop covers every way out of a session.
+    try:
+        _run(_reap_orphans())
+    except Exception as exc:  # noqa: BLE001 — startup must not fail over this
+        logger.warning("[reap] skipped: %s", exc)
 
     # debug=False: the reloader runs this module twice, which would start a second
     # worker.

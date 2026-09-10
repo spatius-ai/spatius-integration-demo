@@ -12,8 +12,8 @@ matches your stack and read that one.
 | Next.js (direct import) | [`nextjs-direct/`](./nextjs-direct) | http://localhost:3000 |
 | Next.js (iframe) | [`nextjs-iframe/`](./nextjs-iframe) | http://localhost:3001 |
 
-Logic shared by all five lives in [`../shared/src`](../shared/src) — the backend
-calls, the session token exchange and the scene helpers.
+Logic shared by all five lives in [`../shared/src`](../shared/src) — the config
+fetch and the session token exchange.
 
 ## Run
 
@@ -21,9 +21,12 @@ The server holds the credentials and mints Session Tokens, so it starts first:
 
 ```bash
 cd ../../../servers/python
-cp .env.example .env    # fill SPATIUS_API_KEY and SPATIUS_APP_ID
+cp .env.example .env    # fill SPATIUS_API_KEY, SPATIUS_APP_ID and the LiveKit keys
+uv sync
 uv run app.py
 ```
+
+It refuses to start while a required key is empty, naming the ones that are.
 
 Then any one client, in a second terminal:
 
@@ -33,20 +36,25 @@ pnpm install
 pnpm dev
 ```
 
-There is no client-side `.env`. Direct Mode keeps the API Key on the server, and
-anything left blank there can be filled in on the configuration page instead —
-which is what makes the demo reachable from a phone on the same network.
+It opens straight on the playground: pick a character, press **Start**, then tap
+the microphone and talk. There is nothing to configure in the browser — every
+credential, the region, the avatar, the language and the voice are the server's
+`.env`, and the client fetches what it needs from `GET /api/config` at launch.
 
-## The two scenes
+The one client-side setting is where that server lives. By default it is the
+page's own host on port 8090, which is right when both run on the same machine;
+set `VITE_DIRECT_MODE_URL` (Vite clients) or `NEXT_PUBLIC_DIRECT_MODE_URL`
+(Next.js clients) when it is elsewhere — a LAN address, say, so a phone can reach
+your laptop. Each client ships a `.env.example` documenting its variable — for
+`nextjs-iframe` that is `iframe-content/.env.example`, since the SDK runs there.
 
-Both drive the avatar through the same `controller.send()`; they differ only in
-where the audio comes from.
+## What drives the avatar
 
-- **Pre-recorded audio** streams a bundled PCM clip. Needs only the two Spatius
-  values.
-- **Realtime conversation** captures the microphone and runs a voice agent on the
-  server, so it also needs the LiveKit section of the server's `.env`. LiveKit is
-  used for Inference only, not for a room.
+The browser captures microphone PCM and sends it to the server, which runs ASR,
+LLM and TTS and streams the assistant's reply back as PCM over the same
+WebSocket. The client hands that to `controller.send()` and keeps the Motion
+Server connection itself — which is what makes it Direct Mode. There is no
+LiveKit room in the path.
 
 ## The two Next.js demos
 
@@ -59,12 +67,12 @@ They exist to show the two ways of getting a WebGL SDK past server rendering:
 - **`nextjs-iframe`** puts the SDK in a separate document instead, served under
   `/iframe/`, so it never enters the server pass at all.
 
-## About the bundled audio
+## About the audio
 
-The clips shipped with these demos are samples, not a constraint. `send()` takes
-any PCM16 audio at the configured sample rate — live microphone capture, a TTS
-stream, or audio from your own pipeline all go through the same call. Files are
-bundled so the demo runs with nothing but an App ID and an API Key.
+The microphone is one source, not a constraint. `send()` takes any PCM16 audio at
+the configured sample rate — live capture, a TTS stream, a file read off disk, or
+audio from your own pipeline all go through the same call. Swap the byte source
+and the rest of the integration is unchanged.
 
 ## References
 

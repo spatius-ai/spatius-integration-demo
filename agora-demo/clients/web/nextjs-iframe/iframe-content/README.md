@@ -1,42 +1,45 @@
-# Direct Mode Next.js Iframe Content
+# Agora Demo — Next.js iframe content
 
-This Vite React app is the iframe payload used by the parent Next.js SDK-mode demo.
+This Vite + React app is the iframe payload for the parent Next.js demo. It is the
+same room as the standalone React client; isolating it in its own document is what
+keeps the SDK out of Next's server pass entirely, rather than deferring it with
+`next/dynamic` the way [`../../nextjs-direct`](../../nextjs-direct) has to.
 
-## Run Directly
+## Run it
 
-```bash
-pnpm install
-pnpm dev
-```
-
-Default URL: `http://localhost:5178`
-
-When running through the parent wrapper, start from `../` instead:
+Normally you do not: start the parent instead, which runs this and Next together.
 
 ```bash
 cd ..
-pnpm install
-pnpm dev
+pnpm install:all
+pnpm dev            # Next on 3021, this on 5198
 ```
 
-The parent Next.js app proxies `/iframe/*` to this Vite app in development and copies the built iframe assets during production builds.
+To run this app on its own:
 
-## Usage
+```bash
+pnpm install
+pnpm dev            # http://localhost:5198
+```
 
-Enter your Spatius App ID and Session Token in the iframe UI, select a region and avatar, then start playback with one of the bundled PCM audio files.
+Either way the [demo server](../../../../servers/python/README.md) has to be running
+first — the page asks it for its configuration on load, and shows a retry if it
+cannot.
 
-## Project Structure
+The parent proxies `/iframe/*` here in development, and copies the built assets into
+`public/iframe` during a production build.
+
+## Structure
 
 ```text
 iframe-content/
 ├── index.html
-├── package.json
 ├── vite.config.ts
 └── src/
-    ├── App.tsx
+    ├── App.tsx          boot: read the server's config, then the room
     ├── main.tsx
+    ├── views/Room.tsx   characters, avatar, microphone
     ├── components/
     ├── hooks/
-    ├── views/
-    └── utils/
+    └── utils/rtcSession.ts
 ```

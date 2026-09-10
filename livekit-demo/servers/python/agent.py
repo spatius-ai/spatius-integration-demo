@@ -1,9 +1,9 @@
 """The agent worker for the LiveKit demo.
 
-The avatar joins the call itself. The agent runs
-here as a LiveKit worker, and `AvatarSession` puts Spatius into the same room: the
-motion rides along encoded in the video stream's SEI, audio travels on an RTC
-track, and the client's SDK parses the motion out to render.
+The avatar joins the call itself. The agent runs here as a LiveKit worker, and
+`AvatarSession` puts Spatius into the same room: the motion rides along encoded in
+the video stream's SEI, audio travels on an RTC track, and the client's SDK parses
+the motion out to render.
 
 Nothing streams through this server. Unlike Direct and Backend Mode, no audio or
 motion passes through `server.py` at all — it only issues credentials and asks
@@ -14,6 +14,7 @@ Run by server.py, not by hand.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -42,9 +43,9 @@ DEFAULT_AVATAR_ID = "41c62a7c-993c-4b6b-b6d3-549ce3c8be00"
 # Personas, one per language. Spoken style, no Markdown — every character is read
 # aloud.
 #
-# The persona has to follow the UI language as well as recognition does: with the
-# English one in place, speaking Chinese gets an English reply, which reads as the
-# avatar ignoring you rather than as a setting being wrong.
+# The persona has to follow CONVERSATION_LANGUAGE as well as recognition does: with
+# the English one in place, speaking Chinese gets an English reply, which reads as
+# the avatar ignoring you rather than as a setting being wrong.
 PROMPTS = {
     "en": (
         "You are a friendly avatar assistant in a demo. Reply in spoken English, at "
@@ -60,23 +61,38 @@ PROMPTS = {
 AGENT_NAME = "spatius-rtc-demo"
 
 
+def normalize_language(value: str | None) -> str:
+    """The one language this demo understands, from whatever was configured.
+
+    Shared with server.py, which normalizes CONVERSATION_LANGUAGE before putting it
+    in the room metadata this reads back — the two have to agree, or the persona and
+    the speech models end up on different languages.
+    """
+    return "zh" if str(value or "en").lower().startswith("zh") else "en"
+
+
 async def entrypoint(ctx: JobContext) -> None:
-    # Re-read on every job: the config page writes changes back to .env, but this
-    # process read its copy at start, so without this a saved change would need a
-    # restart to take effect. override=True is what makes it replace what is already
-    # in the process.
+    # Re-read on every job: this process read .env at start, so an edit made while
+    # it was running would otherwise need a restart. override=True is what makes it
+    # replace what is already in the process.
     load_dotenv(ENV_PATH, override=True)
 
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
 
-    # The UI language, which the server puts in the room metadata. Read before the
-    # session is built: recognition and synthesis both need it, and a session
-    # constructed with the wrong one cannot be corrected afterwards.
-    lang = (ctx.room.metadata or "en").strip()
-    language = "zh" if lang.lower().startswith("zh") else "en"
+    # The job's settings, which the server puts in the room metadata as JSON: the
+    # conversation language from .env, and the character the client picked. Read
+    # before the session is built — recognition and synthesis both need the
+    # language, and a session constructed with the wrong one cannot be corrected
+    # afterwards.
+    try:
+        job = json.loads(ctx.room.metadata or "{}")
+    except ValueError:
+        job = {}
+    language = normalize_language(job.get("language"))
+    avatar_id = str(job.get("avatarId") or "").strip()
 
     session = AgentSession(
-        # Recognition follows the UI language. Left on the wrong one it transcribes
+        # Recognition follows the configured language. Left on the wrong one it transcribes
         # speech into nonsense and the LLM answers the nonsense, which presents as
         # the avatar replying to something nobody said.
         stt=inference.STT(
@@ -104,10 +120,14 @@ async def entrypoint(ctx: JobContext) -> None:
     # What makes this the RTC path: the avatar joins the room. Audio travels on an RTC
     # track and the motion Spatius generates rides along on the video track, so the
     # client renders from the stream rather than being fed by a server.
+    #
+    # The avatar id comes from the room rather than from .env: the client renders
+    # whichever character was picked in its list, and an agent joining as a
+    # different one would put two faces in the same call.
     avatar = AvatarSession(
         api_key=os.getenv("SPATIUS_API_KEY", ""),
         app_id=os.getenv("SPATIUS_APP_ID", ""),
-        avatar_id=os.getenv("SPATIUS_AVATAR_ID", "") or DEFAULT_AVATAR_ID,
+        avatar_id=avatar_id or os.getenv("SPATIUS_AVATAR_ID", "") or DEFAULT_AVATAR_ID,
     )
     await avatar.start(session, room=ctx.room)
 

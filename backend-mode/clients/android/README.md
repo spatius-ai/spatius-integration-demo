@@ -19,11 +19,20 @@ Android client for [Backend Mode](../../README.md). All AI processing (ASR → L
    - **Emulator**: use `10.0.2.2` (Android's alias for host loopback)
    - **Physical device**: use your machine's LAN IP (e.g. `http://192.168.1.100:8765`)
 
-   > **Tip**: Running `../../start.sh` auto-configures `local.properties` with the correct LAN IP. The client fetches App ID and region from the backend `/api/config` endpoint.
+   > **Tip**: Running `../../start.sh` auto-configures `local.properties` with the correct LAN IP. `BACKEND_MODE_URL` reaches the app as a `BuildConfig` field and is the only source for the address.
 
 2. Open the project in Android Studio and sync Gradle.
 
 3. Run on device/emulator.
+
+## Boot flow
+
+There is no configuration screen. The app starts, reads `/api/config` from the
+backend, calls `AvatarSDK.initialize` with what comes back, and opens on the
+playground with the character the backend nominates. Every credential and every
+conversation option (language, region, voice) lives in the backend's `.env` — the only
+thing set on this side is the backend address, because it is how the app finds the
+backend at all. If the backend is unreachable the app shows the error and a **Retry**.
 
 ## How it works
 
@@ -43,14 +52,18 @@ User (mic/text) → Android App → WebSocket /ws/agent → Backend
 
 ```
 app/src/main/java/ai/spatius/avatarkit/backendmodedemo/
-├── MainActivity.kt          # Entry point, initializes SDK
+├── MainActivity.kt          # Entry point: boot, then the playground
 ├── data/
+│   ├── BackendConfig.kt     # Reads GET /api/config
 │   └── Characters.kt        # Default test avatars
 ├── viewmodel/
-│   └── AvatarViewModel.kt   # WebSocket, mic capture, avatar control
+│   └── AvatarViewModel.kt   # Boot, WebSocket, mic capture, avatar control
 └── ui/
+    ├── CharacterPicker.kt   # Character list + custom id
+    ├── DesignSystem.kt      # Shared colors and spacing
     ├── screens/
-    │   └── PlaygroundScreen.kt   # Main UI: avatar view, controls, character list
+    │   ├── BootScreen.kt        # Spinner, and the error + retry state
+    │   └── PlaygroundScreen.kt  # Main UI: avatar view, status, controls
     └── theme/
         ├── Color.kt
         └── Theme.kt

@@ -1,5 +1,3 @@
-export type ToastKind = 'error' | 'warning'
-
 const AUTO_DISMISS_MS = 5000
 const STACK_ID = 'toast-stack'
 
@@ -18,7 +16,7 @@ function ensureStack(): HTMLElement {
  * Floating notice for things a reader would otherwise only find in the console
  * — SDK errors and "you have to connect first" style guidance.
  */
-export function pushToast(text: string, kind: ToastKind = 'error') {
+export function pushToast(text: string) {
   if (!text) return
   const stack = ensureStack()
 
@@ -27,7 +25,7 @@ export function pushToast(text: string, kind: ToastKind = 'error') {
   if (existing.some(el => el.textContent === text)) return
 
   const toast = document.createElement('div')
-  toast.className = `toast toast-${kind}`
+  toast.className = 'toast toast-error'
   toast.setAttribute('role', 'alert')
 
   const label = document.createElement('span')

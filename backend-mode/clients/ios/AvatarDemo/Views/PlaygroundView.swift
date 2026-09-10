@@ -13,19 +13,17 @@ private struct StatusRow: Identifiable {
 /// The playground, laid out for a phone.
 ///
 /// Same parts as the Web client and in the same order: the avatar with its playback
-/// controls, then the status bar, then whatever drives the avatar for this scene.
-/// What the Web version puts in a left-hand list — the characters — is a sheet here,
-/// opened from the toolbar; a phone has no room for a permanent sidebar, and the
-/// avatar is what the screen is for.
+/// controls, then the status bar, then the microphone. What the Web version puts in
+/// a left-hand list — the characters — is a sheet here, opened from the toolbar; a
+/// phone has no room for a permanent sidebar, and the avatar is what the screen is
+/// for.
 ///
 /// There is no Start button, unlike Direct Mode: the WebSocket to the demo's own
 /// server costs nothing and every control is dead until it exists, so it opens as
 /// soon as there is an avatar to render into.
 struct PlaygroundView: View {
+    /// What the server reported at boot. Its avatar id opens the stage.
     let serverConfig: BackendClient.ServerConfig
-    let baseURL: String
-    let scene: DemoScene
-    let language: Lang
 
     @StateObject private var viewModel = AvatarViewModel()
     @State private var selectedCharacterId: String = ""
@@ -34,40 +32,25 @@ struct PlaygroundView: View {
     @State private var isLoadingAvatar = false
     @State private var loadError: String?
     @State private var loadProgress: Double = 0
-    @State private var showClipsHint = false
     @State private var showCharacters = false
     @State private var helpRow: StatusRow?
     @State private var typed = ""
 
     var body: some View {
-        // The page itself does not scroll. Everything the pre-recorded scene needs is
-        // on screen at once — tapping a clip and watching the avatar answer are the
-        // two halves of one action, and putting the list below the fold meant
-        // scrolling down to start playback and back up to see it.
+        // The stage stays put; only what is under it scrolls. The microphone and
+        // the avatar answering it are the two halves of one action, and pushing the
+        // stage off the top would mean scrolling back up to watch every reply.
         VStack(spacing: 12) {
             avatarStage
 
             if viewModel.avatar != nil {
-                if scene == .realtime {
-                    // The realtime panel is one control and a transcript that grows,
-                    // so it scrolls on its own with the status bar above it.
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            statusBar
-                            realtimePanel
-                        }
+                // One control and a transcript that grows, so it scrolls on its own
+                // with the status bar above it.
+                ScrollView {
+                    VStack(spacing: 12) {
+                        statusBar
+                        realtimePanel
                     }
-                } else {
-                    // Side by side, each scrolling within its own column: the clips
-                    // are what gets tapped and the status is what gets read while the
-                    // avatar answers, so neither may push the other off screen.
-                    HStack(alignment: .top, spacing: 10) {
-                        ScrollView { statusBar }
-                            .frame(maxWidth: .infinity)
-                        ScrollView { clipSection }
-                            .frame(maxWidth: .infinity)
-                    }
-                    .padding(.horizontal, 12)
                 }
             }
 
@@ -88,11 +71,6 @@ struct PlaygroundView: View {
             }
         }
         .sheet(isPresented: $showCharacters) { characterSheet }
-        .alert("Pre-recorded audio", isPresented: $showClipsHint) {
-            Button("Got it", role: .cancel) {}
-        } message: {
-            Text(serverConfig.clipsHint)
-        }
         .alert(item: $helpRow) { row in
             Alert(
                 title: Text(row.label),
@@ -101,8 +79,6 @@ struct PlaygroundView: View {
             )
         }
         .task {
-            viewModel.backendBaseURL = baseURL
-            viewModel.language = language.rawValue
             if selectedCharacterId.isEmpty {
                 let fallback = defaultCharacters.first { $0.id == serverConfig.avatarID }
                 loadCharacter(id: serverConfig.avatarID, name: fallback?.name ?? "Avatar")
@@ -259,53 +235,7 @@ struct PlaygroundView: View {
         .cornerRadius(10)
     }
 
-    // MARK: - Pre-recorded scene
-
-    private var clipSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text("Pre-recorded audio").font(.subheadline).fontWeight(.semibold)
-                Button { showClipsHint = true } label: {
-                    Image(systemName: "questionmark.circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                Spacer()
-            }
-
-            ForEach(serverConfig.clips) { clip in
-                Button {
-                    viewModel.playSample(clip.clip)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "waveform").font(.caption)
-                        Text(viewModel.playingClip == clip.clip ? "..." : clip.name)
-                            .font(.caption)
-                            .lineLimit(1)
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray.opacity(0.35), lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(!viewModel.backendConnected || viewModel.playingClip != nil)
-            }
-
-            Text("The clips live on the server and never pass through this app: one is "
-                 + "streamed straight into the avatar, and what arrives here is the "
-                 + "encoded audio and motion to render.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    // MARK: - Realtime scene
+    // MARK: - The conversation
 
     private var realtimePanel: some View {
         VStack(spacing: 10) {

@@ -13,15 +13,14 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 /**
- * The realtime scene's link to the backend agent.
+ * The link to the backend agent.
  *
- * Direct Mode either way: the client owns the Motion Server connection and drives the
- * avatar itself. The scenes differ only in where the audio comes from —
+ * Direct Mode: the client owns the Motion Server connection and drives the avatar
+ * itself. The conversation runs elsewhere —
  *
- *   pre-recorded  a bundled .pcm file  ──────────────────►  controller.send()
- *   realtime      mic ──ws──► agent (ASR/LLM/TTS) ──ws──►  controller.send()
+ *   mic ──ws──► agent (ASR/LLM/TTS) ──ws──► controller.send()
  *
- * — so both end at the same call and the rendering side is untouched.
+ * — so the rendering side sees nothing but PCM16 arriving.
  *
  * There is no LiveKit SDK here on purpose. The agent runs server-side without a room:
  * `AgentSession` only builds a RoomIO when its audio input and output are unset, and
@@ -56,12 +55,14 @@ class RealtimeClient(
         .build()
 
     /** Connect, and resolve once the agent is up and listening. */
-    suspend fun connect(url: String, language: String): Unit = suspendCoroutine { cont ->
+    suspend fun connect(url: String): Unit = suspendCoroutine { cont ->
         var settled = false
 
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                webSocket.send(JSONObject().put("type", "start").put("language", language).toString())
+                // No settings travel with it: the language, the models and the voice
+                // are the server's, fixed when it builds the agent session.
+                webSocket.send(JSONObject().put("type", "start").toString())
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {

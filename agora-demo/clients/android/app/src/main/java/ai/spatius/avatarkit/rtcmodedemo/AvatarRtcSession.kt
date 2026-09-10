@@ -28,13 +28,13 @@ import kotlinx.coroutines.withTimeoutOrNull
  * The avatar's RTC session: ask the server for a channel, initialize the SDK, load the
  * avatar, connect, publish the microphone.
  *
- * RTC Mode is the one path where the avatar joins the call itself. This client feeds it
- * no driving data at all: the agent encodes the animation into the video stream's SEI,
- * the SDK parses it out to drive rendering, and audio travels on an RTC audio track.
+ * This is the one path where the avatar joins the call itself. This client feeds it no
+ * driving data at all: the agent encodes the animation into the video stream's SEI, the
+ * SDK parses it out to drive rendering, and audio travels on an RTC audio track.
  *
- *     Direct    client ──audio──►  Motion Server           (client drives)
- *     Backend   client ──mic───►  server ──► Motion Server (server drives)
- *     RTC       client ◄────  RTC channel  ────► agent     (neither — it is in the call)
+ *     Direct    client ──audio──►  Motion Server            (client drives)
+ *     Backend   client ──mic───►  server ──► Motion Server  (server drives)
+ *     Agora     client ◄──  Agora channel  ──► agent        (neither — it is in the call)
  *
  * So there is no `send()` and no `yieldAudioData()` here. Once connected, everything
  * arrives as a stream.
@@ -90,17 +90,16 @@ class AvatarRtcSession(application: Application) : AndroidViewModel(application)
      * Idempotent. On failure the session is stopped and the guard released, so the
      * caller can retry.
      */
-    fun start(baseUrl: String, language: String, avatarId: String = "") {
+    fun start(baseUrl: String, avatarId: String = "") {
         if (hasStarted) return
         hasStarted = true
         this.baseUrl = baseUrl
-        this.language = language
         errorMessage = null
 
         viewModelScope.launch {
             try {
                 status = "Creating a session…"
-                val credentials = AgentClient.createSession(baseUrl, language, avatarId)
+                val credentials = AgentClient.createSession(baseUrl, avatarId)
                 sessionId = credentials.sessionId
                 agentUid = credentials.agentUid.toLong() and 0xFFFFFFFFL
 
@@ -234,17 +233,13 @@ class AvatarRtcSession(application: Application) : AndroidViewModel(application)
      */
     fun switchAvatar(avatarId: String) {
         val url = baseUrl
-        val lang = language
         viewModelScope.launch {
             runCatching { player?.disconnect() }
             AgentClient.stopSession(url, sessionId)
             resetForRestart()
-            start(url, lang, avatarId)
+            start(url, avatarId)
         }
     }
-
-    /** The language the current session was created with, so a restart keeps it. */
-    private var language = "en"
 
     /** Clear everything a new session will set again. */
     private fun resetForRestart() {

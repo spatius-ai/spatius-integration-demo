@@ -37,6 +37,24 @@ uv sync
 uv run python server.py
 ```
 
+**`.env` is the whole configuration** — credentials, conversation language, voice and
+model. The clients enter nothing: they open on the playground and send only the
+character the user picks.
+
+The server validates `.env` before it binds anything. A key still unset, or left on
+its placeholder, prints as:
+
+```
+  Cannot start: .env is incomplete.
+
+    SPATIUS_APP_ID         https://app.spatius.ai/apps
+    LIVEKIT_API_SECRET     https://cloud.livekit.io — shown only once, at creation
+```
+
+and the process exits non-zero. Checked at startup rather than at the first request,
+because a demo that boots and then fails one click later — with the reason on a
+browser console — is the slowest possible way to learn a key was never filled in.
+
 It binds `0.0.0.0`, not `127.0.0.1`, so a phone on the same network can reach it. The
 web clients work either way, since the browser runs on this machine.
 
@@ -64,8 +82,8 @@ OSError: [Errno 48] error while attempting to bind on address ('0.0.0.0', 8081)
 "message": "worker failed"
 ```
 
-Flask comes up fine, `/health` answers, `/api/config` works — so the server looks
-healthy. Only the agent is missing.
+Flask comes up fine and `/health` answers, so the server looks healthy. Only the
+agent is missing.
 
 Check both ports, not just the server's:
 
@@ -95,10 +113,17 @@ registered worker  ...  "agent_name": "spatius-rtc-demo"
 
 The LiveKit API secret is shown only once, at creation — copy it there and then.
 
-The **voice** is `TTS_MODEL` / `TTS_VOICE` in `.env`, and the web clients' config page
-lets you pick the model from a list with recorded samples. Note that the accent follows
-the voice rather than the language setting — some default voices read Chinese with an
+The **voice** is `TTS_MODEL` / `TTS_VOICE` in `.env`; `.env.example` lists the
+synthesis models this demo has been run against. Note that the accent follows the
+voice rather than `CONVERSATION_LANGUAGE` — some default voices read Chinese with an
 English accent.
+
+The **conversation language** is `CONVERSATION_LANGUAGE` (`en` | `zh`). It sets
+recognition, synthesis and the assistant's persona, all of which are fixed when the
+agent session is built — which is why it is set here rather than switched inside a
+room. Changing it takes effect on the next session; changing `TTS_MODEL` needs the
+server restarted, since the worker reads `.env` per job but is started by this
+process.
 
 ### The failures that report nothing
 
@@ -115,23 +140,32 @@ English accent.
 ## API
 
 ```
-GET  /health                   → { ok, missing, lanUrl }
-GET  /api/config               → saved credentials, what is missing
-POST /api/config               → save credentials; takes effect immediately (restarts the worker)
+GET  /health                   → { ok, lanUrl }
+GET  /api/config               → { appId } — what a client needs to boot
 POST /api/session              → join credentials + the agent on its way
 POST /api/session/stop         → end a session
 ```
 
 That is the whole API. Nothing drives the avatar: once a client has joined, everything
-reaches it over the room.
+reaches it over the room. There is no endpoint that writes `.env` — configuration is
+the file, edited directly.
 
-`/api/session` accepts `{ language, avatarId }` and answers with what the client joins
-with:
+`/api/config` is read-only and returns nothing secret. The App ID is public — it
+identifies the app to the SDK — so a client can initialize with it; the API key and
+the LiveKit secret never leave this process.
+
+`/api/session` accepts `{ avatarId }`, the one genuinely per-session choice, and
+answers with what the client joins with:
 
 ```jsonc
 { "sessionId": "...", "url": "wss://…", "token": "…", "roomName": "…",
-  "spatiusAppId": "…", "avatarId": "…" }
+  "avatarId": "…" }
 ```
+
+The avatar id and `CONVERSATION_LANGUAGE` ride to the worker as the room's metadata
+(JSON): the worker is dispatched into existence and has no other way of knowing which
+character to join as, or which language to listen and reply in. Sending the picked id
+is what keeps the agent's avatar and the one the client renders the same.
 
 ### Stopping a session
 

@@ -33,8 +33,8 @@ import {
  *
  * Read through a function rather than fixed at module load: Next.js prerenders
  * these components on the server, where there is no `location` to read, and a
- * top-level evaluation fails the build outright. Every call site runs in response
- * to a user action, so by then there is always a document.
+ * top-level evaluation fails the build outright. Every call site runs in the
+ * browser — from an effect or a click — so by then there is always a document.
  */
 export function serverUrl(): string {
   // Both build systems' env objects, reached without naming either's globals:
@@ -50,18 +50,10 @@ export function serverUrl(): string {
   return `${location.protocol}//${location.hostname}:8790`
 }
 
+/** The little the server hands out for the client to boot with. Nothing secret. */
 export interface ServerConfig {
-  avatarId: string
-  SPATIUS_APP_ID?: string
-  SPATIUS_API_KEY?: string
-  SPATIUS_AVATAR_ID?: string
-  LIVEKIT_URL?: string
-  LIVEKIT_API_KEY?: string
-  LIVEKIT_API_SECRET?: string
-  /** The LiveKit Inference TTS model, which the config page lets you pick. */
-  TTS_MODEL?: string
-  /** What the server is still waiting on. */
-  missing: string[]
+  /** The Spatius App ID, which the SDK is initialized with. */
+  appId: string
 }
 
 export async function fetchConfig(): Promise<ServerConfig> {
@@ -70,19 +62,9 @@ export async function fetchConfig(): Promise<ServerConfig> {
   return (await res.json()) as ServerConfig
 }
 
-export async function saveConfig(values: Record<string, string>): Promise<void> {
-  const res = await fetch(`${serverUrl()}/api/config`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(values),
-  })
-  if (!res.ok) throw new Error(`Could not save configuration (HTTP ${res.status})`)
-}
-
 /** What the server hands back to join with. */
 interface Session {
   sessionId: string
-  spatiusAppId: string
   avatarId: string
   roomName: string
   url: string
@@ -92,10 +74,10 @@ interface Session {
 let sdkInitialized = false
 
 /**
- * Initialized once per page: the SDK reads the App ID only at initialize time, so it
- * cannot be changed afterwards without a reload.
+ * Initialized once per page, on the way into the playground: the SDK reads the App ID
+ * only at initialize time, so it cannot be changed afterwards without a reload.
  */
-async function initializeSdk(appId: string): Promise<void> {
+export async function initializeSdk(appId: string): Promise<void> {
   if (sdkInitialized) return
   sdkInitialized = true
   await AvatarSDK.initialize(appId, {
@@ -113,7 +95,6 @@ export interface SessionCallbacks {
   onDownload?: (percent: number) => void
   /** The avatar's first rendered frame — what dismisses the overlay, not "connected". */
   onRendered?: () => void
-  onError?: (message: string) => void
 }
 
 export class RtcSession {
@@ -132,15 +113,17 @@ export class RtcSession {
     return this.sessionId
   }
 
-  get isConnected(): boolean {
-    return this.player?.isConnected ?? false
-  }
-
   get micActive(): boolean {
     return this.micStream !== null
   }
 
-  async start(container: HTMLElement, avatarId?: string, language = 'en'): Promise<void> {
+  /**
+   * @param avatarId - the character picked in the list. It is the one per-session
+   *   choice there is: it is sent to the server so the agent joins as the same
+   *   character this page renders. Everything else — language, voice, credentials —
+   *   is fixed in the server's .env.
+   */
+  async start(container: HTMLElement, avatarId?: string): Promise<void> {
     if (this.started) return
     this.started = true
 
@@ -150,28 +133,17 @@ export class RtcSession {
     const res = await fetch(`${serverUrl()}/api/session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ language }),
+      body: JSON.stringify({ avatarId }),
     })
-    const body = await res.text()
     if (!res.ok) {
       this.started = false
-      try {
-        const parsed = JSON.parse(body)
-        if (parsed.missingKeys?.length) {
-          throw new Error(`Server is missing: ${parsed.missingKeys.join(', ')}`)
-        }
-      } catch (err) {
-        if (err instanceof Error && err.message.startsWith('Server is missing')) throw err
-      }
       throw new Error(`Could not start a session (HTTP ${res.status})`)
     }
-    const session = JSON.parse(body) as Session
+    const session = (await res.json()) as Session
     this.sessionId = session.sessionId
 
     // Billing has started as of here, so any later failure has to stop the session.
     try {
-      await initializeSdk(session.spatiusAppId)
-
       progress('Loading avatar…')
       const id = avatarId || session.avatarId
       // A cache hit skips the download, so re-entering does not run the progress bar

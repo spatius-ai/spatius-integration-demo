@@ -2,11 +2,8 @@
 
 import { useEffect } from 'react'
 
-export type ToastKind = 'error' | 'warning'
-
 export interface ToastMessage {
   id: number
-  kind: ToastKind
   text: string
 }
 
@@ -33,7 +30,7 @@ export default function Toast({ messages, onDismiss }: Props) {
   return (
     <div className="toast-stack">
       {messages.map(m => (
-        <div key={m.id} className={`toast toast-${m.kind}`} role="alert">
+        <div key={m.id} className="toast toast-error" role="alert">
           <span className="toast-text">{m.text}</span>
           <button
             className="toast-close"

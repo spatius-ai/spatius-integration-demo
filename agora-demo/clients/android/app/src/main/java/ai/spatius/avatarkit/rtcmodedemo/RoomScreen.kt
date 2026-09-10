@@ -49,17 +49,14 @@ import androidx.core.content.ContextCompat
 /**
  * The room: the avatar and the microphone.
  *
- * Thinner than the other two modes' playgrounds, and the reason is the mode itself: the
- * avatar is in the call, so there is nothing here that drives it. No clip list — there
- * is no pre-recorded scene. No pause, resume or interrupt — those act on local playback,
- * and there is none: the audio is a live RTC track. The Web client's room is the same
- * shape, for the same reason.
+ * Thinner than the other demos' playgrounds, and the reason is this path itself: the
+ * avatar is in the call, so there is nothing here that drives it. No pause, resume or
+ * interrupt — those act on local playback, and there is none: the audio is a live RTC
+ * track. The Web client's room is the same shape, for the same reason.
  */
 @Composable
 fun RoomScreen(
     session: AvatarRtcSession,
-    baseUrl: String,
-    language: Lang,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -71,8 +68,10 @@ fun RoomScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted -> if (granted) session.publishMic() }
 
+    // The server's address is the only thing this app is configured with; everything
+    // else — the credentials, the conversation language — is the server's own .env.
     LaunchedEffect(Unit) {
-        session.start(baseUrl, if (language == Lang.Zh) "zh" else "en")
+        session.start(BuildConfig.RTC_MODE_URL)
     }
 
     Column(
@@ -132,14 +131,14 @@ fun RoomScreen(
                 }
             }
 
-            // Nothing over the avatar here. The other two modes put pause and interrupt
-            // there because they drive playback; in RTC Mode the avatar is in the call
-            // and there is no local playback to act on — closing the microphone is the
-            // only control, and it lives below.
+            // Nothing over the avatar here. The other demos put pause and interrupt
+            // there because they drive playback; here the avatar is in the call and
+            // there is no local playback to act on — closing the microphone is the only
+            // control, and it lives below.
         }
 
-        // The microphone and nothing else, the same as the Web client: in RTC Mode
-        // nothing is driven from this screen.
+        // The microphone and nothing else, the same as the Web client: nothing is
+        // driven from this screen.
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -206,7 +205,7 @@ fun RoomScreen(
 
             Spacer(Modifier.height(4.dp))
             Text(
-                "RTC Mode is the one path where the avatar joins the call itself: audio "
+                "This is the one path where the avatar joins the call itself: audio "
                     + "travels on an RTC track and the motion rides along encoded in the "
                     + "video stream. Nothing is driven from this screen, and nothing "
                     + "streams through the server — it only issues the credentials to join.",

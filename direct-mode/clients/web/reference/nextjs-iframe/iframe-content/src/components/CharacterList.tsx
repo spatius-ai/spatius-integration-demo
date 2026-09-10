@@ -9,6 +9,9 @@ interface Character {
 }
 
 interface Props {
+  /** The avatar the server's `.env` points at. Offered first, since it is the one
+   *  the deployment is actually set up for. */
+  serverAvatarId?: string
   loadingId: string | null
   loadProgress: number
   onSelect: (id: string, name: string) => void
@@ -16,22 +19,29 @@ interface Props {
   empty?: boolean
 }
 
-export default function CharacterList({ loadingId, loadProgress, onSelect, empty }: Props) {
+export default function CharacterList({ serverAvatarId, loadingId, loadProgress, onSelect, empty }: Props) {
   const [adding, setAdding] = useState(false)
   const [customId, setCustomId] = useState('')
   const [customChars, setCustomChars] = useState<Character[]>([])
 
+  // The avatar the server's .env names, first in the list: it is the one this
+  // deployment is set up for, and it may not be among the built-in four.
+  const serverChar: Character[] =
+    serverAvatarId && !DEFAULT_CHARACTERS.some(c => c.id === serverAvatarId)
+      ? [{ id: serverAvatarId, name: 'Server default' }]
+      : []
+
+  const allChars = [...serverChar, ...DEFAULT_CHARACTERS, ...customChars]
+
   const handleAdd = () => {
     const id = customId.trim()
     if (!id) return
-    if ([...DEFAULT_CHARACTERS, ...customChars].some(c => c.id === id)) return
+    if (allChars.some(c => c.id === id)) return
     const name = `Custom (${id.slice(0, 6)}...)`
     setCustomChars(prev => [...prev, { id, name }])
     setCustomId('')
     setAdding(false)
   }
-
-  const allChars = [...DEFAULT_CHARACTERS, ...customChars]
 
   return (
     <div className="character-list">

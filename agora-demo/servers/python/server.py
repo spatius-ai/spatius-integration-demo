@@ -16,6 +16,10 @@ the voice are configured on a published agent in its console, and there is no wo
 to run here. For the same demo with the conversation running on your own machine see
 `../../../livekit-demo`.
 
+`.env` is the demo's only configuration — credentials, the conversation language, the
+default avatar. Nothing is entered on a client and nothing is written back here, so
+this validates it on startup and refuses to run while a key is missing.
+
 ⚠️ This is a demo with no authentication. Anyone who can reach this address can start
 a session, and sessions are billed. Add authentication and rate limiting before
 putting it on a public network.
@@ -26,6 +30,7 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import sys
 import threading
 from pathlib import Path
 
@@ -45,6 +50,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
+
+def _env(key: str, default: str = "") -> str:
+    return (os.getenv(key, default) or "").strip()
+
+
 # RTC_SERVER_PORT, not SERVER_PORT: Backend Mode reads that name too, and an
 # exported SERVER_PORT in the shell would silently move both servers onto one port
 # — with each .env overruled, since the environment wins. The old name still works
@@ -53,104 +63,64 @@ HTTP_PORT = int(
     os.getenv("RTC_SERVER_PORT") or os.getenv("SERVER_PORT") or "8790"
 )
 
-# What a client may read and write, mirroring the other modes' config pages.
-# Secrets are included: this server runs on the user's own machine, and being able to
-# fill everything in on screen — from a phone, which has no .env to edit — matters
-# more than keeping them out of an API that has no auth anyway.
-COMMON_KEYS = ["SPATIUS_APP_ID", "SPATIUS_API_KEY", "SPATIUS_AVATAR_ID"]
-AGORA_KEYS = ["AGORA_APP_ID", "AGORA_APP_CERTIFICATE", "AGORA_PIPELINE_ID"]
-EDITABLE_KEYS = COMMON_KEYS + AGORA_KEYS
+# Everything this demo needs before it can serve a session. All of it lives in
+# .env — nothing is entered on a client, and nothing is written back from here.
+REQUIRED_KEYS = [
+    "SPATIUS_APP_ID",
+    "SPATIUS_API_KEY",
+    "AGORA_APP_ID",
+    "AGORA_APP_CERTIFICATE",
+    "AGORA_PIPELINE_ID",
+]
 
 PLACEHOLDER_VALUES = {"your_spatius_api_key", "your_spatius_app_id", "replace_me"}
 
-
-def _env(key: str, default: str = "") -> str:
-    return (os.getenv(key, default) or "").strip()
+# Which language the conversation runs in. It fixes speech recognition and the persona
+# at the moment the agent is started, so it cannot be switched on a running session —
+# which is why it is a server setting rather than something a client sends.
+CONVERSATION_LANGUAGE = (
+    "zh" if _env("CONVERSATION_LANGUAGE", "en").lower().startswith("zh") else "en"
+)
 
 
 def _is_placeholder(value: str) -> bool:
     return value.strip().lower() in PLACEHOLDER_VALUES
 
 
-# Editable but not required: it has a working default, and reporting it as missing
-# would block the client on a setting it never has to touch.
-OPTIONAL_KEYS = {"SPATIUS_AVATAR_ID"}
-
-
-def _missing() -> list[str]:
-    """Everything this demo needs that is still unset."""
-    return [
-        k
-        for k in EDITABLE_KEYS
-        if k not in OPTIONAL_KEYS and (not _env(k) or _is_placeholder(_env(k)))
-    ]
+def _validate_env_or_exit() -> None:
+    """Fail at startup rather than at the first session, so a missing key is one
+    message on the terminal that knows rather than a failed /api/session at a client."""
+    missing = [k for k in REQUIRED_KEYS if not _env(k) or _is_placeholder(_env(k))]
+    if not missing:
+        return
+    print("\n  Cannot start: these are missing from servers/python/.env\n", file=sys.stderr)
+    for key in missing:
+        print(f"    {key}", file=sys.stderr)
+    print(
+        "\n  Copy .env.example to .env and fill them in — every setting this demo has\n"
+        "  lives there, including the conversation language.\n",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
 
 # ---------------------------------------------------------------- Config
 
 
-def _read_env_file() -> dict[str, str]:
-    if not ENV_PATH.exists():
-        return {}
-    existing: dict[str, str] = {}
-    for raw in ENV_PATH.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        existing[key.strip()] = value.strip()
-    return existing
-
-
 @app.get("/api/config")
 def read_config():
-    """What the client needs, plus whatever credentials are already saved.
+    """What a client needs to boot, and nothing else.
 
-    `missing` names each key still unset, so the config page can point at it rather
-    than failing at the click. The mobile clients read the same list.
+    No credential is echoed back: the API key, the Agora certificate and the pipeline
+    id never leave this machine. The clients only need to know which avatar to load
+    by default and which language the conversation will run in.
     """
-    saved = {
-        key: ("" if _is_placeholder(_env(key)) else _env(key)) for key in EDITABLE_KEYS
-    }
     return jsonify(
         {
-            **saved,
             "avatarId": _env("SPATIUS_AVATAR_ID") or DEFAULT_AVATAR_ID,
-            "missing": _missing(),
+            "language": CONVERSATION_LANGUAGE,
         }
     )
-
-
-@app.post("/api/config")
-def write_config():
-    """Save what was filled in on the page, taking effect immediately.
-
-    Rewrites the whole file rather than appending: a repeated key resolves in a way
-    that is not obvious, and duplicates eventually produce the "I changed it and
-    nothing happened" problem. Keys already in the file that are not on the page are
-    carried over.
-    """
-    body = request.get_json(silent=True) or {}
-    updates = {k: str(v).strip() for k, v in body.items() if k in EDITABLE_KEYS}
-    # A blank field means "leave what is saved", not "erase it".
-    updates = {k: v for k, v in updates.items() if v}
-
-    merged = _read_env_file()
-    merged.update(updates)
-    lines = [
-        "# Written by the demo's config page. You can also edit this file directly.",
-        "",
-    ]
-    lines += [f"{k}={v}" for k, v in merged.items()]
-    ENV_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    # agora.py reads the environment on every call, so a save takes effect on the
-    # next session with nothing to restart.
-    for key, value in updates.items():
-        os.environ[key] = value
-
-    logger.info("[config] saved %s", ", ".join(sorted(updates)) or "nothing")
-    return jsonify({"ok": True, "saved": sorted(updates)})
 
 
 # ---------------------------------------------------------------- Sessions
@@ -165,19 +135,15 @@ _sessions_lock = threading.Lock()
 def create_session():
     """Everything the client needs to join: a channel, a token, and the agent on its way.
 
-    Accepts `{ language, avatarId }`. The mobile clients also send `transport: "agora"`,
-    a leftover from when one server served both transports; it is ignored here, since
-    Agora is the only thing this server speaks.
+    Accepts `{ avatarId }` — the character the user picked, and the only genuinely
+    per-session thing a client knows. The language, the credentials and everything else
+    come from this server's .env, which was validated at startup.
 
     ⚠️ Billing starts here — the client must call /api/session/stop when it leaves.
     """
     body = request.get_json(silent=True) or {}
-    language = "zh" if str(body.get("language") or "en").lower().startswith("zh") else "en"
     avatar_id = str(body.get("avatarId") or "").strip()
-
-    missing = _missing()
-    if missing:
-        return jsonify({"error": "invalid_server_env", "missingKeys": missing}), 500
+    language = CONVERSATION_LANGUAGE
 
     try:
         session = agora.start_agent(avatar_id, language)
@@ -233,13 +199,12 @@ def stop_session():
 
 @app.get("/health")
 def health():
-    return jsonify(
-        {
-            "ok": not _missing(),
-            "missing": _missing(),
-            "lanUrl": f"http://{_lan_ip()}:{HTTP_PORT}",
-        }
-    )
+    """Alive, and where a phone can reach this machine.
+
+    Nothing polls this — the mobile READMEs point at `lanUrl` for the address to put
+    in `Config.swift` / `local.properties`.
+    """
+    return jsonify({"ok": True, "lanUrl": f"http://{_lan_ip()}:{HTTP_PORT}"})
 
 
 # ---------------------------------------------------------------- Plumbing
@@ -279,9 +244,12 @@ def _lan_ip() -> str:
 
 
 if __name__ == "__main__":
+    _validate_env_or_exit()
+
     lan = _lan_ip()
     print("\n  Agora demo server")
-    print(f"  HTTP  http://0.0.0.0:{HTTP_PORT}   (LAN: http://{lan}:{HTTP_PORT})\n")
+    print(f"  HTTP  http://0.0.0.0:{HTTP_PORT}   (LAN: http://{lan}:{HTTP_PORT})")
+    print(f"  Conversation language: {CONVERSATION_LANGUAGE}\n")
 
     # It binds 0.0.0.0, not 127.0.0.1: a phone on the same network cannot reach this
     # machine's loopback address, and the mobile clients need to.

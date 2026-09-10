@@ -59,10 +59,6 @@ export function useAvatarManager(onError?: (message: string) => void) {
   const activeAvatar = avatars.find(a => a.uid === activeUid) ?? null
   const activeController: AvatarController | null = activeAvatar?.view?.controller ?? null
 
-  const updateAvatar = useCallback((uid: string, patch: Partial<AvatarInstance>) => {
-    setAvatars(prev => prev.map(a => a.uid === uid ? { ...a, ...patch } : a))
-  }, [])
-
   const loadAvatar = useCallback(async (
     characterId: string,
     characterName: string,
@@ -187,6 +183,5 @@ export function useAvatarManager(onError?: (message: string) => void) {
     loadAvatar,
     removeAvatar,
     removeAll,
-    updateAvatar,
   }
 }

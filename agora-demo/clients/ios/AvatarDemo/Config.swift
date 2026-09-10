@@ -1,12 +1,14 @@
 import Foundation
 
 enum Config {
-    /// Agora demo server base URL.
+    /// Agora demo server base URL. The only thing this app is configured with.
     ///
-    /// The simulator runs on the host machine, so localhost reaches it directly. A
-    /// physical device cannot — it needs the dev machine's LAN address, which the
-    /// server prints on startup and also returns from `GET /health` as `lanUrl`. That
-    /// is why the address is the one thing this app asks the user to type: everything
-    /// else it needs, it reads from the server once it can reach it.
-    static let rtcModeURL = "http://localhost:8790"
+    /// Everything else — the Spatius and Agora credentials, the conversation language,
+    /// the voice — lives in the server's `.env` and never reaches the device.
+    ///
+    /// This demo is device-only (neither the Agora SDK nor the AvatarKit build behind
+    /// `AvatarKitRTC` ships a simulator slice), and a device cannot reach the dev
+    /// machine's localhost — so set this to the LAN address the server prints on
+    /// startup, which it also returns from `GET /health` as `lanUrl`.
+    static let serverURL = "http://localhost:8790"
 }

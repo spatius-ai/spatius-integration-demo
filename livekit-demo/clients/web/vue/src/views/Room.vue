@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import type { AppConfig } from '../App.vue'
 import { RtcSession, stopSessionOnUnload } from '../utils/rtcSession'
 import CharacterList from '../components/CharacterList.vue'
 import Toast from '../components/Toast.vue'
 import { useToast } from '../composables/useToast'
-
-const props = defineProps<{ config: AppConfig }>()
 
 /**
  * The room, laid out like the other two modes: characters on the left, the avatar in
@@ -56,7 +53,6 @@ async function enter(id: string, name: string) {
     onProgress: (text) => (status.value = text),
     onDownload: (percent) => (status.value = `Downloading avatar… ${percent}%`),
     onRendered: () => (rendered.value = true),
-    onError: (message) => notify(message),
   })
   session = next
 
@@ -65,7 +61,7 @@ async function enter(id: string, name: string) {
   const superseded = () => session !== next
 
   try {
-    await next.start(stageRef.value, id, props.config.language)
+    await next.start(stageRef.value, id)
     if (superseded()) return
     status.value = 'Connecting the agent…'
 

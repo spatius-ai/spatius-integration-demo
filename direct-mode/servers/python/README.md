@@ -6,34 +6,27 @@ things:
 
 - mints short-lived **Session Tokens**, so `SPATIUS_API_KEY` stays on the server and
   the client holds no credentials at all;
-- runs the realtime scene's **voice agent**, handing its synthesized speech back to the
-  client as PCM.
-
-## The two scenes
-
-They differ only in where the client's audio comes from — both end at the same
-`controller.send()` call, which is why the client code for them is nearly identical.
-
-| | Sample audio | Realtime |
-|---|---|---|
-| Where the audio comes from | a bundled `.pcm` file | the browser microphone |
-| What this server does | mints a Session Token, serves the clip | mints a token, and runs ASR → LLM → TTS |
-| Credentials needed | Spatius only | Spatius **and** LiveKit |
+- runs the **voice agent** — ASR, LLM and TTS — handing its synthesized speech back to
+  the client as PCM.
 
 ```
-sample audio    bundled .pcm  ─────────────────────────────►  controller.send()
-realtime        mic ──ws──►  agent (ASR/LLM/TTS)  ──ws──►     controller.send()
+mic ──ws──►  agent (ASR/LLM/TTS)  ──ws──►  controller.send()  ─►  Motion Server
 ```
+
+Everything configurable lives in `.env`: credentials, region, avatar, conversation
+language, models and voice. The clients send nothing but the avatar they want to
+render — there is no configuration screen on any of them, and no endpoint here that
+writes configuration.
 
 ### No LiveKit room
 
-The realtime scene runs a LiveKit agent but **no LiveKit room**. `AgentSession` only
-builds a RoomIO when its audio input and output are unset; this server sets both up
-front (see `realtime.py`), so the microphone arrives over the client's own WebSocket
-and the reply leaves the same way.
+The agent runs on LiveKit but uses **no LiveKit room**. `AgentSession` only builds a
+RoomIO when its audio input and output are unset; this server sets both up front (see
+`realtime.py`), so the microphone arrives over the client's own WebSocket and the reply
+leaves the same way.
 
-That is what keeps the client simple: it needs no LiveKit SDK, and both scenes reduce
-to "get PCM, call `controller.send()`".
+That is what keeps the client simple: it needs no LiveKit SDK, and the whole path
+reduces to "get PCM, call `controller.send()`".
 
 ## Setup
 
@@ -45,24 +38,49 @@ uv run app.py
 
 Two listeners come up:
 
-- `http://0.0.0.0:8090` — config, session tokens, the sample clip
-- `ws://0.0.0.0:8091/ws/realtime` — the realtime scene
+- `http://0.0.0.0:8090` — config and session tokens
+- `ws://0.0.0.0:8091/ws/realtime` — the conversation
 
 The LAN address is printed at startup and returned by `/health`. A phone cannot reach
 your computer's `localhost`, so use that one from a device.
 
+### It refuses to start against an unfilled `.env`
+
+`.env` is validated before anything binds a port. A missing or still-placeholder key
+prints its name and where to get it, and the process exits non-zero:
+
+```
+  Cannot start: .env is incomplete.
+
+    SPATIUS_API_KEY        https://app.spatius.ai/apps
+    LIVEKIT_API_SECRET     https://cloud.livekit.io — shown only once, at creation
+```
+
+Every client boots by fetching `/api/config`, so a server that came up half-configured
+would only move the failure somewhere with less context.
+
 ### Credentials
 
-| Setting | Where to get it | Needed by |
-|---|---|---|
-| `SPATIUS_API_KEY` / `SPATIUS_APP_ID` | https://app.spatius.ai/apps | both scenes |
-| `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | https://cloud.livekit.io | realtime only |
+| Setting | Where to get it |
+|---|---|
+| `SPATIUS_API_KEY` / `SPATIUS_APP_ID` | https://app.spatius.ai/apps |
+| `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | https://cloud.livekit.io |
 
-Models go through LiveKit Inference, so you do **not** need an OpenAI, Deepgram or
-Cartesia account of your own. Change `STT_MODEL`, `LLM_MODEL` and `TTS_MODEL` in `.env`
-to pick different ones.
+All five are required. Models go through LiveKit Inference, so you do **not** need an
+OpenAI, Deepgram or Cartesia account of your own. Change `STT_MODEL`, `LLM_MODEL` and
+`TTS_MODEL` in `.env` to pick different ones.
 
 The LiveKit API secret is shown only once, at creation — copy it there and then.
+
+### Conversation settings
+
+`CONVERSATION_LANGUAGE` (`en` | `zh`) picks the language the agent listens and replies
+in. It is deliberately **not** a client setting: recognition, synthesis and the persona
+are all fixed when the agent session is built, so changing it takes a restart rather
+than a toggle. `TTS_VOICE` and `LLM_SYSTEM_PROMPT` are fixed here for the same reason.
+
+Note the accent comes from the voice rather than from the language: some default voices
+read Chinese with an accent, and only a few give you Mandarin.
 
 ### When it looks fine but the phone cannot reach it
 
@@ -81,14 +99,16 @@ looks wrong until a phone is involved:
 ## API
 
 ```
-GET  /api/config          → appId, avatarId, region, and which keys are still missing
-POST /api/session-token   → { sessionToken, expiredAt, appId, avatarId, region }
-GET  /api/sample-audio    → the bundled PCM16 clip
+GET  /api/config          → { appId, avatarId, region, sampleRate, realtimeUrl }
+POST /api/session-token   → { sessionToken, expiredAt, avatarId, region }
 GET  /health              → { ok, lanUrl, realtimeUrl }
 ```
 
-`/api/config` reports `missing` per scene, so a client can grey out the scene it cannot
-run yet and name the key rather than failing at the click.
+`/api/config` is read-only and free of secrets: the App ID identifies the app rather
+than authorizing anything, and the rest is addressing. `SPATIUS_API_KEY` and the
+LiveKit credentials never leave this process.
+
+`POST /api/session-token` takes no body — the console derives the app from the key.
 
 ### Realtime WebSocket
 
@@ -96,9 +116,9 @@ run yet and name the key rather than failing at the click.
 
 ```jsonc
 // client → server
-{ "type": "start", "language": "en" }
+{ "type": "start" }                       // no settings: they are all this server's
 { "type": "mic_audio", "audio": "<base64 pcm16>" }
-{ "type": "text", "text": "..." }        // a typed line, spoken as-is
+{ "type": "text", "text": "..." }         // a typed line, spoken as-is
 { "type": "interrupt" }
 
 // server → client

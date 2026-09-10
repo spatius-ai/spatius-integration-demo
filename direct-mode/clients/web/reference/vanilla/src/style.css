@@ -31,33 +31,56 @@ body {
   min-height: 100vh;
 }
 
-/* --- View transitions --- */
+/* --- Boot --- */
 .app {
   position: relative;
   min-height: 100vh;
 }
 
-.view {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-  /* `inset: 0` sets where the box starts, not how tall it may grow: content taller
-     than the viewport still stretches it, and since .app is the positioning parent
-     that lengthens the page. The hidden view then adds a scrollbar to a screen it
-     is not even on — visible in the realtime scene, whose config page is taller by
-     the three LiveKit fields. */
-  overflow: hidden;
+/* Shown only while the server is being reached, or when it cannot be. */
+.app.boot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
 }
 
-.view.active {
-  opacity: 1;
-  pointer-events: auto;
-  position: relative;
-  /* The active view owns the screen, so it scrolls normally — the config page is
-     legitimately taller than the viewport on a short window. */
-  overflow: visible;
+.boot-status {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.boot-error {
+  max-width: 460px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  text-align: center;
+}
+
+.boot-error h1 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.boot-error p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  word-break: break-word;
+}
+
+.boot-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.boot-error code {
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 4px;
 }
 
 /* --- Shared --- */
@@ -94,11 +117,6 @@ button.secondary:hover:not(:disabled) {
   background: #cbd5e1;
 }
 
-button.danger {
-  background: var(--error);
-  color: white;
-}
-
 input, select {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -112,328 +130,6 @@ input, select {
 input:focus, select:focus {
   border-color: var(--primary);
 }
-
-/* --- View 1: Mode Select --- */
-.mode-select {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 24px 16px;
-}
-
-.mode-header {
-  text-align: center;
-  margin-bottom: 28px;
-}
-
-.mode-header h1 {
-  font-size: 36px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.mode-header p {
-  color: var(--text-secondary);
-  font-size: 16px;
-}
-
-.mode-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  max-width: 1100px;
-  width: 100%;
-}
-
-.mode-card {
-  flex: 1;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.2s;
-}
-
-.mode-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.12);
-  transform: translateY(-2px);
-}
-
-.mode-diagram {
-  width: 100%;
-  max-width: 860px;
-  height: auto;
-  margin: 0 auto 12px;
-  display: block;
-}
-
-.mode-card h2 {
-  font-size: 20px;
-  margin-bottom: 12px;
-}
-
-.mode-desc {
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 16px;
-}
-
-.mode-usecase {
-  display: inline-block;
-  background: #eef2ff;
-  color: var(--primary);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 20px;
-}
-
-/* --- View 2: Configuration --- */
-.config-view {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 40px 20px;
-}
-
-.config-container {
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 40px;
-  max-width: 480px;
-  width: 100%;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
-
-.config-container h1 {
-  font-size: 24px;
-  margin-bottom: 4px;
-}
-
-.config-subtitle {
-  color: var(--text-secondary);
-  margin-bottom: 24px;
-}
-
-.back-btn {
-  background: none;
-  color: var(--text-secondary);
-  padding: 4px 0;
-  margin-bottom: 16px;
-  font-size: 14px;
-}
-
-.back-btn:hover {
-  color: var(--text);
-}
-
-.config-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field label {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.required {
-  color: var(--error);
-}
-
-.field-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.field-hint a {
-  color: var(--primary);
-  text-decoration: none;
-}
-
-/* Config page: form + guide side by side */
-.config-layout {
-  display: flex;
-  align-items: stretch;
-  gap: 32px;
-  max-width: none;
-  width: 100%;
-}
-
-/* One guide per credential set, stacked in the order the fields are asked for.
-   Each sizes to its own screenshots and the column scrolls, rather than every guide
-   sharing the viewport height — with LiveKit's two rows added there is more here
-   than fits, and shrinking them to fit is what made them unreadable. */
-.config-guides {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  /* No scroll container here: one would clip the hover-zoomed screenshot back to
-     the column. Both guides fit as they are. */
-}
-
-.config-guide {
-  flex: none;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  text-decoration: none;
-  background: var(--surface);
-}
-
-.config-guide img {
-  width: 100%;
-  display: block;
-  object-fit: cover;
-  object-position: top left;
-}
-
-/* The Spatius guide is one tall screenshot; cap it so it cannot push LiveKit's off
-   the first screen entirely. */
-.config-guide > img {
-  max-height: 420px;
-}
-
-/* A guide that takes more than one screenshot to follow, in the order the steps
-   happen: side by side in one row, wrapping when the column is narrower. */
-.guide-shots {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px;
-  background: var(--bg);
-}
-
-/* Share the row evenly, capped so neither grows past what is readable. Sized in
-   flex-basis rather than a fixed width so the pair keeps fitting as the column
-   changes with the viewport, instead of wrapping a few pixels short. */
-.guide-shots img {
-  flex: 1 1 460px;
-  min-width: 0;
-  max-width: 520px;
-  height: auto;
-  object-fit: fill;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  /* Two side by side leaves the console's own labels too small to read. Hovering
-     one scales it up in place — transform rather than width, so the other stays
-     where it is instead of being pushed around. */
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-  transform-origin: center;
-  cursor: zoom-in;
-}
-
-.guide-shots img:hover {
-  transform: scale(1.5);
-  /* Above its neighbour and the caption, which it now overlaps. */
-  position: relative;
-  z-index: 10;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
-}
-
-.guide-caption {
-  padding: 10px 14px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
-
-/* Scene picker: two mutually exclusive peers, so a segmented control rather than a
-   dropdown — both options and what they mean stay visible. */
-.scene-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.scene-toggle button {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: flex-start;
-  text-align: left;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.scene-toggle button:hover {
-  border-color: var(--primary);
-}
-
-.scene-toggle button.on {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-}
-
-.scene-toggle strong {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/* The same control, but its options carry no sub-label, so it does not need the
-   height the scene picker does. */
-.lang-toggle button {
-  align-items: center;
-  text-align: center;
-  padding: 9px 14px;
-}
-
-.scene-toggle span {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* Credentials that belong to one provider, set off from the fields above them. */
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-}
-
-.group-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.group-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: -12px 0 0;
-  line-height: 1.5;
-}
-
 
 /* Guide thumbnail — used in character list */
 .guide-thumb {
@@ -462,21 +158,7 @@ input:focus, select:focus {
   position: relative;
 }
 
-.config-error {
-  background: #fef2f2;
-  color: var(--error);
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-}
-
-.init-btn {
-  margin-top: 8px;
-  padding: 12px;
-  font-size: 16px;
-}
-
-/* --- View 3: Playground --- */
+/* --- Playground --- */
 .playground {
   display: flex;
   height: 100vh;
@@ -595,16 +277,6 @@ input:focus, select:focus {
   flex-shrink: 0;
 }
 
-.character-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  margin-left: auto;
-}
-
 .character-progress {
   margin-left: auto;
   font-size: 12px;
@@ -700,47 +372,6 @@ input:focus, select:focus {
   font-size: 12px;
   color: var(--text-muted);
 }
-
-/* Avatar tabs */
-.avatar-tabs {
-  display: flex;
-  gap: 2px;
-  padding: 0 20px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-}
-
-.avatar-tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  font-size: 13px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-
-.avatar-tab.active {
-  border-bottom-color: var(--primary);
-  color: var(--primary);
-  font-weight: 500;
-}
-
-.tab-close {
-  background: none;
-  padding: 2px 4px;
-  font-size: 12px;
-  color: var(--text-muted);
-  border-radius: 4px;
-}
-
-.tab-close:hover {
-  background: var(--border);
-  color: var(--text);
-}
-
-/* PLACEHOLDER_REMAINING_CSS */
 
 /* Avatar canvas */
 /* Wraps the canvas so the playback controls can sit over it. The canvas keeps its
@@ -845,7 +476,6 @@ input:focus, select:focus {
 }
 
 .avatar-canvas.grid-1 { grid-template-columns: 1fr; }
-.avatar-canvas.grid-2 { grid-template-columns: 1fr 1fr; }
 .avatar-canvas.grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
 
 .canvas-cell {
@@ -859,11 +489,6 @@ input:focus, select:focus {
   outline-offset: -2px;
 }
 
-.canvas-container {
-  width: 100%;
-  height: 100%;
-}
-
 .canvas-empty {
   position: absolute;
   inset: 0;
@@ -874,19 +499,6 @@ input:focus, select:focus {
   font-size: 16px;
   background: #111;
 }
-
-.canvas-loading, .canvas-error {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-  font-size: 14px;
-}
-
-.canvas-loading { color: var(--text-muted); }
-.canvas-error { color: var(--error); background: rgba(0,0,0,0.7); }
 
 /* PLACEHOLDER_CONTROLS_CSS */
 
@@ -1013,40 +625,6 @@ input:focus, select:focus {
 }
 
 .full-width { width: 100%; }
-
-.audio-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.audio-list h4 {
-  font-size: 12px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.audio-hint {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  font-size: 10px;
-  line-height: 1;
-  cursor: help;
-  opacity: 0.7;
-}
-
-.audio-hint:hover {
-  opacity: 1;
-}
 
 /* --- Realtime scene: one microphone in place of the clip list --- */
 
@@ -1213,74 +791,6 @@ input:focus, select:focus {
   background: var(--bg);
   padding: 1px 4px;
   border-radius: 3px;
-}
-
-/* PLACEHOLDER_FINAL_CSS */
-
-.audio-btn {
-  text-align: left;
-  font-size: 13px;
-  /* Pin the height: while one clip plays every button swaps its label, and a
-     text-driven height change reflows the panel — which stutters the canvas. */
-  /* Fixed height + single line: labels differ in length and swap to an
-     ellipsis while playing, and any text-driven height change reflows the
-     panel — which stutters the canvas mid-playback. */
-  height: 34px;
-  display: flex;
-  align-items: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.host-text-form {
-  display: flex;
-  gap: 8px;
-}
-
-.host-text-input {
-  flex: 1;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-card);
-  color: var(--text);
-  font-size: 13px;
-  outline: none;
-}
-
-.host-text-input:focus {
-  border-color: var(--primary);
-}
-
-.host-text-input:disabled {
-  opacity: 0.5;
-}
-
-.host-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.host-hint a {
-  color: var(--primary);
-  text-decoration: none;
-}
-
-.host-hint a:hover {
-  text-decoration: underline;
-}
-
-.btn-row {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-row button {
-  flex: 1;
-  font-size: 13px;
-  padding: 8px;
 }
 
 /* Cell badge & close */
@@ -1464,9 +974,8 @@ input:focus, select:focus {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* `hidden` loses to any explicit display, and .field / .field-group both set
-   `display: flex` — so the realtime-only credentials stayed on screen in the
-   pre-recorded scene, which asks for none of them. */
+/* `hidden` loses to any explicit display, and several panels below set one — so
+   without this a hidden panel stays on screen. */
 [hidden] {
   display: none !important;
 }

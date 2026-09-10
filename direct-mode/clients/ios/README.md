@@ -1,24 +1,21 @@
 # Direct Mode iOS Client
 
-SwiftUI sample implementing the same avatar conversation pipeline as Web:
+SwiftUI sample. The microphone is captured on the device and sent to the Direct Mode
+server, which runs ASR, LLM and TTS and streams the assistant's reply back as PCM.
+That PCM drives the avatar:
 
-`VAD -> ASR (OpenAI) -> LLM (streaming) -> TTS (OpenAI) -> AvatarKit SDK`
+`mic PCM -> server (ASR/LLM/TTS) -> assistant PCM -> controller.send(chunk, end) -> Avatar renders`
+
+The app holds no credentials. On launch it fetches `GET /api/config` from the server,
+asks it for a Session Token, initializes the SDK, and opens on the playground — there
+is no configuration screen.
 
 ## Requirements
 
 - Xcode 16+
 - iOS 16+
 - Apple Silicon Mac (recommended for simulator rendering)
-
-## Session Token (Manual)
-
-Aligned with Android:
-
-- Do not fetch token from local backend in this sample.
-- Paste Session Token manually in UI.
-- Token is validated when tapping `Start Conversation`.
-
-- Token guide: `https://docs.spatius.ai/api-reference/api-reference#obtain-a-session-token`
+- A running [Direct Mode server](../../servers/python/README.md)
 
 ## Quick Start
 
@@ -42,21 +39,41 @@ open AvatarDemo.xcodeproj
 
 ## Configuration
 
-Nothing to edit before building — the app collects everything on its first
-screen and remembers it:
+One setting, in `AvatarDemo/Config.swift`:
 
-- **App ID**: https://app.spatius.ai/apps
-- **Session Token**: https://docs.spatius.ai/api-reference/api-reference#obtain-a-session-token
-- **Region**: `auto` lets the SDK pick the closest serving region
+```swift
+static let directModeURL = "http://localhost:8090"
+```
 
-Then pick a character on the Playground screen, tap **Start** to connect, and
-choose an audio clip to send. Audio only reaches the avatar once the connection
-is up — tapping a clip before **Start** just tells you to connect first.
+The Simulator shares the Mac's network, so the default works there. A physical device
+cannot reach your computer's `localhost` — use the LAN address the server prints at
+startup (`http://192.168.x.x:8090`).
+
+Everything else — App ID, API key, avatar, region, conversation language, voice —
+lives in the server's `.env`. Nothing is entered on the device and nothing is stored
+there.
+
+## Run Flow
+
+1. Start the server first — the app cannot boot without it, and says so if it is
+   unreachable, with a **Retry**.
+2. The app opens on the playground with the server's configured avatar loading. Use
+   **Characters** in the toolbar to pick another, or to enter a custom ID.
+3. Tap **Start** to connect.
+4. Tap the microphone and talk. The transcript appears below; interrupt and pause
+   sit over the avatar.
+
+Audio only reaches the avatar once the connection is up.
 
 ## Notes
 
+- The whole path is 16 kHz mono PCM16, matching the `AudioFormat(sampleRate:)` the app
+  initializes with from `/api/config`.
 - iOS `AvatarKit.xcframework` is downloaded automatically on first build from the configured release. Override `SPATIUS_AVATARKIT_IOS_URL` and `SPATIUS_AVATARKIT_IOS_CHECKSUM` only when testing a different release.
-- If `sessionTokenInvalid` appears, check token type, token age, app/region match.
+- If `sessionTokenInvalid` appears, check the server's `SPATIUS_API_KEY` and
+  `SPATIUS_APP_ID` — the token is minted there, and the device never sees the key.
+- If the app cannot start, the error is almost always the address: check
+  `directModeURL` against what the server printed, and that the server is still up.
 
 ## Troubleshooting
 
@@ -68,7 +85,7 @@ gets a chance to run. Build once more, or fetch it up front:
 
 ```bash
 curl -L -o AvatarKit.xcframework.zip \
-  https://github.com/spatius-ai/avatarkit-ios-release/releases/download/v1.3.2/AvatarKit_202608072023.zip
+  https://github.com/spatius-ai/avatarkit-ios-release/releases/download/v1.3.4/AvatarKit_202608311739.zip
 unzip -q AvatarKit.xcframework.zip
 ```
 
@@ -87,12 +104,10 @@ xcodebuild -project AvatarDemo.xcodeproj -scheme AvatarDemo \
   -sdk iphonesimulator -arch arm64 build CODE_SIGNING_ALLOWED=NO
 ```
 
-## About the bundled audio
+## About the audio
 
-The clips shipped with this demo are samples, not a constraint. `send()` takes
-any PCM16 audio at the configured sample rate — live microphone capture, a TTS
-stream, or audio from your own pipeline all go through the same call. Files are
-bundled so the demo runs with nothing but an App ID and a Session Token.
+The microphone is one source, not a constraint. `send()` takes any PCM16 audio at the
+configured sample rate — live capture, a TTS stream, a file read off disk, or audio
+from your own pipeline all go through the same call.
 
 See [Direct Mode](../../README.md#about-the-audio-in-these-demos) for the full picture.
-

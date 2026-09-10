@@ -28,49 +28,66 @@ flowchart LR
 
 ## About the audio in these demos
 
-Every client here ships a handful of `.pcm` files and sends them when you tap a
-clip. **That is a convenience, not the shape of the API.** `send()` accepts any
-PCM16 audio at the configured sample rate, so the exact same call works for:
+Every client here captures the microphone and sends the PCM to `servers/python`,
+which runs ASR → LLM → TTS and streams the assistant's reply back as PCM. The client
+hands that reply to `controller.send()` and keeps the Motion Server connection
+itself — which is what makes it Direct Mode. There is no LiveKit room in the path.
+
+```
+  mic PCM16  ──ws──►  server (ASR → LLM → TTS)  ──ws──►  assistant PCM16
+                                                              │
+                                                              ▼
+                                                    controller.send(chunk, end)
+                                                              │
+                                                              ▼
+                                                    Motion Server  ─►  avatar
+```
+
+**The microphone is one source, not the shape of the API.** `send()` accepts any
+PCM16 audio at the configured sample rate, so the same call works for:
 
 - live microphone capture, chunked as it arrives
 - a TTS service streaming audio back to you
+- a file you read off disk
 - audio from your own pipeline, wherever it runs
 
-The demos bundle files so they run with nothing but an App ID and a Session
-Token — no ASR/LLM/TTS keys, no backend. Swap the byte source and the rest of
-the integration is unchanged.
-
-```
-any PCM16 source  ─┐
-  microphone       │
-  TTS stream       ├─►  controller.send(chunk, end)  ─►  Motion Server  ─►  avatar
-  bundled file     │
-  your pipeline   ─┘
-```
+Swap the byte source and the rest of the integration is unchanged.
 
 ## Prerequisites
 
-- [Spatius credentials](https://app.spatius.ai/apps) (App ID + Session Token)
+- [Spatius credentials](https://app.spatius.ai/apps) (App ID + API Key)
+- [LiveKit credentials](https://cloud.livekit.io) — the server runs the conversation
+  through LiveKit Inference, so no OpenAI or Deepgram account of your own is required
 
-## Token servers
+## The server
 
-Direct Mode clients connect to Motion Server directly, but they must not hold `SPATIUS_API_KEY`. Use a small backend endpoint to exchange your server-side API Key for a short-lived Session Token, then pass that Session Token to the client.
+Direct Mode clients connect to Motion Server directly, but they must never hold
+`SPATIUS_API_KEY`. The example in `servers/python` exchanges that server-side key for
+a short-lived Session Token, and it also runs the conversation: ASR, LLM and TTS,
+returning plain PCM. It never touches motion data — that stays between the client and
+Motion Server.
 
-The examples in `servers/python`, `servers/nodejs`, and `servers/go` are token servers only. They do not run ASR, LLM, or TTS; they do not connect to Motion Server; and they do not transport audio or motion data. For that runtime-server architecture, use [Backend Mode](../backend-mode/).
+**All configuration lives in the server's `.env`** — credentials, region, avatar,
+conversation language, models and voice. The clients hold none of it: each one boots
+by fetching `GET /api/config` and minting a token. There is no configuration screen
+on any client, and nothing to type into a phone.
 
 ## Quick Start
-
-### Web
 
 The server holds the API Key and mints Session Tokens, so it starts first:
 
 ```bash
 cd servers/python
-cp .env.example .env    # fill SPATIUS_API_KEY and SPATIUS_APP_ID
+cp .env.example .env    # fill SPATIUS_API_KEY, SPATIUS_APP_ID and the LiveKit keys
+uv sync
 uv run app.py
 ```
 
-Then the client, in a second terminal:
+It refuses to start while a required key is empty, naming the ones that are. Two
+listeners come up — `http://0.0.0.0:8090` and `ws://0.0.0.0:8091/ws/realtime` — and
+the LAN address is printed at startup, which is the one to use from a phone.
+
+### Web
 
 ```bash
 cd clients/web/reference/react
@@ -78,22 +95,22 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:5173` and pick a scene on the configuration page.
+Open `http://localhost:5173`. It opens straight on the playground: pick a character,
+press **Start**, then tap the microphone and talk.
 
-**Sample audio** streams a bundled PCM clip and needs nothing beyond the two Spatius
-values. **Realtime conversation** captures the microphone and runs a voice agent on the
-server, so it also needs the LiveKit section of `.env` — LiveKit is used for Inference
-only, not for a room, so no OpenAI or Deepgram account of your own is required.
-
-Anything left blank in `.env` can be filled in on the configuration page instead, which
-is what makes the demo usable from a phone on the same network.
+The client finds the server at the page's own host on port 8090. When the server is
+elsewhere, set `VITE_DIRECT_MODE_URL` (or `NEXT_PUBLIC_DIRECT_MODE_URL` for the
+Next.js clients) — see each client's `.env.example`.
 
 The same client is provided for other frameworks under `clients/web/reference/`:
 `vue/`, `vanilla/`, `nextjs-direct/`, and `nextjs-iframe/`.
 
 ### Android
 
-Open `clients/android/` in Android Studio. Enter App ID and Session Token on the config screen, select a character, and tap an audio file.
+Open `clients/android/` in Android Studio. Copy `local.properties.example` to
+`local.properties` and point `DIRECT_MODE_URL` at the running server — the emulator
+reaches the host machine at `http://10.0.2.2:8090`, a physical device needs the LAN
+address the server printed. Run the app; it boots straight into the playground.
 
 ### iOS
 
@@ -102,7 +119,21 @@ cd clients/ios
 xcodegen generate
 ```
 
-Open `AvatarDemo.xcodeproj` in Xcode. Enter App ID and Session Token, select a character, and tap an audio file.
+Open `AvatarDemo.xcodeproj` in Xcode. Set `directModeURL` in `AvatarDemo/Config.swift`
+to the running server — the simulator shares the Mac's network, so the default works
+there; a device needs the LAN address. Run the app.
+
+### Flutter
+
+```bash
+cd clients/flutter
+flutter pub get
+flutter run
+```
+
+Set `directModeUrl` in `lib/config.dart` to the running server. The Android emulator
+reaches the host at `http://10.0.2.2:8090`; the iOS simulator shares the Mac's
+network, so the default works there.
 
 ## Project Structure
 
@@ -110,7 +141,7 @@ Open `AvatarDemo.xcodeproj` in Xcode. Enter App ID and Session Token, select a c
 direct-mode/
 ├── clients/
 │   ├── web/
-│   │   ├── shared/       # backend calls + SDK lifecycle the clients share
+│   │   ├── shared/       # backend calls the clients share
 │   │   └── reference/
 │   │       ├── react/
 │   │       ├── vue/
@@ -120,23 +151,21 @@ direct-mode/
 │   ├── android/          # Kotlin + Compose
 │   ├── ios/              # SwiftUI
 │   └── flutter/          # Flutter (iOS + Android)
-├── servers/              # Optional local session-token servers
-│   ├── python/
-│   ├── nodejs/
-│   └── go/
+├── servers/
+│   └── python/           # session tokens + the voice agent
 └── README.md
 ```
 
-## Extending with Real-Time Conversation
+## Taking it to production
 
-The **Realtime conversation** scene shows the shape of it: the browser captures
-microphone PCM, [`servers/python/realtime.py`](./servers/python/realtime.py) runs ASR,
-LLM and TTS, and the assistant PCM comes back over the same WebSocket. There is no
-LiveKit room in that path — the browser hands the reply to `controller.send()` and
-keeps the Motion Server connection itself, which is what makes it Direct Mode.
+The conversation pipeline here is an example, not a requirement: Direct Mode only
+cares that PCM reaches `controller.send()`. Replace `servers/python/realtime.py` with
+your own ASR/LLM/TTS, or drop the socket entirely and feed the SDK from a TTS service
+you already run.
 
-For production, keep long-lived provider keys on your backend and mint short-lived
-browser tokens, as the server here does for the Session Token.
+Keep long-lived provider keys on your backend and mint short-lived client tokens, as
+the server here does for the Session Token. The demo server has no authentication —
+add it before putting anything on a public network.
 
 ## References
 

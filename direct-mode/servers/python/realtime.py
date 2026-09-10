@@ -1,4 +1,4 @@
-"""The realtime scene's voice agent.
+"""The voice agent.
 
 The conversation runs here — ASR, LLM and TTS — but the avatar does not. This is
 Direct Mode: the client holds the Motion Server connection, so what this returns is
@@ -7,8 +7,7 @@ plain PCM, and the browser hands it to `controller.send()` itself.
 That is why there is no LiveKit room in this file. `AgentSession` only builds a
 RoomIO when its audio input and output are unset; setting both up front keeps the
 whole session local, and the microphone arrives (and the reply leaves) over the
-client's own WebSocket. The client therefore needs no LiveKit SDK, and the two
-scenes converge on the same client code: both end at `controller.send(pcm)`.
+client's own WebSocket. The client therefore needs no LiveKit SDK.
 
 Models go through LiveKit Inference, so the only credentials are LiveKit's and
 Spatius'.
@@ -35,8 +34,8 @@ logger = logging.getLogger(__name__)
 # Personas, one per language. Spoken style, no Markdown — every character is read
 # aloud.
 #
-# The persona has to follow the UI language as well as recognition does: with the
-# English one in place, speaking Chinese gets an English reply, which reads as the
+# The persona has to follow CONVERSATION_LANGUAGE as well as recognition does: with
+# the English one in place, speaking Chinese gets an English reply, which reads as the
 # avatar ignoring you rather than as a setting being wrong.
 DEFAULT_INSTRUCTIONS = {
     "en": (
@@ -49,11 +48,6 @@ DEFAULT_INSTRUCTIONS = {
         "不要使用 Markdown 或任何符号排版，你说的每一个字都会被朗读出来。"
     ),
 }
-
-
-def _speech_language(language: str) -> str:
-    """Normalise whatever the client sent to a language the models accept."""
-    return "zh" if (language or "").lower().startswith("zh") else "en"
 
 
 class WebSocketAudioInput(AudioInput):
@@ -130,7 +124,13 @@ class WebSocketAudioOutput(AudioOutput):
 
     def flush(self) -> None:
         super().flush()
-        self._on_flush()
+        # Only close a turn that actually carried audio. The session also flushes
+        # empty segments (a reply interrupted before synthesis produced anything, an
+        # empty reply), and an end marker with no audio behind it makes the client
+        # open and immediately close an Ogg Opus stream with nothing in it — which
+        # Motion Server rejects with OP_EBADTIMESTAMP and drops the whole connection.
+        if self._position > 0:
+            self._on_flush()
         # Report the segment as played out. Nothing here can observe real playback —
         # the audio is already on its way to a browser that owns the timing — so the
         # turn is complete as soon as the last frame has been forwarded. Without this
@@ -157,18 +157,17 @@ class RealtimeAgent:
         on_audio: Callable[[bytes], None],
         on_turn_end: Callable[[], None],
         on_interrupt: Callable[[], None],
-        on_transcript: Callable[[str, str], None] | None = None,
-        instructions: str = "",
-        language: str = "en",
+        on_transcript: Callable[[str, str], None],
     ) -> None:
         self._input = WebSocketAudioInput()
         self._output = WebSocketAudioOutput(on_audio, on_turn_end, on_interrupt)
         self._on_transcript = on_transcript
-        self._language = _speech_language(language)
+        # From .env, not from the client: recognition, synthesis and the persona are
+        # all fixed when the session below is built, so this is a deployment setting
+        # rather than something a browser can switch mid-conversation.
+        self._language = config.conversation_language()
         self._instructions = (
-            instructions
-            or config.env("LLM_SYSTEM_PROMPT")
-            or DEFAULT_INSTRUCTIONS[self._language]
+            config.env("LLM_SYSTEM_PROMPT") or DEFAULT_INSTRUCTIONS[self._language]
         )
         self._session: AgentSession | None = None
         self._http_ctx: AbstractAsyncContextManager | None = None
@@ -196,7 +195,7 @@ class RealtimeAgent:
 
     async def _start(self) -> None:
         session = AgentSession(
-            # Recognition has to follow the UI language: left on the wrong one it
+            # Recognition has to follow the conversation language: on the wrong one it
             # transcribes speech into nonsense and the LLM answers the nonsense,
             # which presents as the avatar replying to something nobody said.
             stt=inference.STT(
@@ -216,15 +215,13 @@ class RealtimeAgent:
         )
         self._session = session
 
-        if self._on_transcript is not None:
-
-            @session.on("conversation_item_added")
-            def _on_item(event) -> None:  # noqa: ANN001 — the event type is internal
-                item = getattr(event, "item", None)
-                role = getattr(item, "role", None)
-                text = (getattr(item, "text_content", None) or "").strip()
-                if role in ("user", "assistant") and text:
-                    self._on_transcript(role, text)
+        @session.on("conversation_item_added")
+        def _on_item(event) -> None:  # noqa: ANN001 — the event type is internal
+            item = getattr(event, "item", None)
+            role = getattr(item, "role", None)
+            text = (getattr(item, "text_content", None) or "").strip()
+            if role in ("user", "assistant") and text:
+                self._on_transcript(role, text)
 
         # Bound before start(), which is what keeps this session out of a room: with
         # both ends already set, AgentSession has no reason to build a RoomIO.

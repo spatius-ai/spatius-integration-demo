@@ -4,20 +4,10 @@ Backend Mode means the **server** owns the Motion Server connection: it drives t
 avatar and sends clients encoded audio plus motion messages. Clients are thin — they
 capture microphone audio and render what comes back, and hold no credentials at all.
 
-## The two scenes
-
-They differ only in where the audio comes from. Both reach the avatar through the
-same connection, so the client sees identical messages either way.
-
-| | Pre-recorded | Realtime |
-|---|---|---|
-| Where the audio comes from | a bundled `.pcm` file | the browser microphone |
-| What this server does | streams the clip to the avatar | runs ASR → LLM → TTS, then streams the reply |
-| Credentials needed | Spatius only | Spatius **and** LiveKit |
+## The conversation
 
 ```
-pre-recorded  bundled .pcm  ─────────────────────────►  avatar session ──► client
-realtime      mic ──ws──►  agent (ASR/LLM/TTS)  ─────►  avatar session ──► client
+mic ──ws──►  agent (ASR/LLM/TTS)  ─────►  avatar session ──► client
 ```
 
 Audio is driven **as it arrives** rather than collected first: this backend holds the
@@ -26,7 +16,7 @@ synthesized.
 
 ### No LiveKit room
 
-The realtime scene runs a LiveKit agent but **no LiveKit room**. `AgentSession` only
+The conversation runs a LiveKit agent but **no LiveKit room**. `AgentSession` only
 builds a RoomIO when its audio input and output are unset; this server sets both (see
 `app/agent.py`), so the microphone arrives over the client's WebSocket and the reply
 goes straight into the avatar session.
@@ -38,6 +28,11 @@ cp .env.example .env      # fill in your credentials
 uv sync
 uv run python -m app.main
 ```
+
+Every setting lives here: the credentials, and the conversation options the clients
+used to ask for — language, region, voice. **The server validates `.env` at startup**
+and, if a required key is missing or still a placeholder, prints the key names with a
+one-line hint each and exits non-zero. Nothing to configure on the client side.
 
 That binds `0.0.0.0`, not uvicorn's `127.0.0.1` default: a phone on the same network
 cannot reach the dev machine's loopback address, so the mobile clients would find
@@ -52,14 +47,22 @@ cannot see it.
 
 | Setting | Where to get it | Needed by |
 |---|---|---|
-| `SPATIUS_APP_ID` / `SPATIUS_API_KEY` / `SPATIUS_AVATAR_ID` | https://app.spatius.ai/apps | both scenes |
-| `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | https://cloud.livekit.io | realtime only |
+| `SPATIUS_APP_ID` / `SPATIUS_API_KEY` / `SPATIUS_AVATAR_ID` | https://app.spatius.ai/apps | the avatar |
+| `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | https://cloud.livekit.io | the conversation |
 
 Models are routed by LiveKit Inference, so you do **not** need an OpenAI, Deepgram or
 Cartesia account of your own — LiveKit's three credentials replace all of them. Change
 `STT_MODEL`, `LLM_MODEL` and `TTS_MODEL` in `.env` to pick different ones.
 
 The LiveKit API secret is shown only once, at creation — copy it there and then.
+
+### Conversation language
+
+`CONVERSATION_LANGUAGE` (`en` | `zh`) sets speech recognition, synthesis and the
+agent's persona at once. All three are fixed when the agent session is built, so it is
+a server setting rather than something a client switches mid-conversation — no client
+sends a language. Note the accent comes from `TTS_VOICE` rather than from the
+language: some default voices read Chinese with an accent.
 
 ### When it looks fine but the phone cannot reach it
 
@@ -78,13 +81,15 @@ looks wrong until a phone is involved:
 ## API
 
 ```
-GET  /healthz     → { ok, missing }
-GET  /api/config  → appId, avatarId, region, sample rates, and what each scene lacks
+GET  /healthz     → { ok }
+GET  /api/config  → appId, avatarId, region, inputSampleRate
 WS   /ws/agent    → the session below
 ```
 
-`/api/config` reports `missing` per scene, so a client can grey out the scene it
-cannot run yet and name the key rather than failing at the click.
+`/api/config` is read-only and free of credentials: it is what a client needs to call
+`AvatarSDK.initialize` and open on a character, and the whole of it. There is no
+endpoint that writes configuration — the server's `.env` is the only source, and a key
+that is missing there stops the server rather than reaching a client.
 
 ### WebSocket protocol
 
@@ -93,20 +98,19 @@ PCM16 mono at the configured sample rates, base64 in JSON.
 ```jsonc
 // client → server
 { "type": "set_avatar", "avatarId": "..." }
-{ "type": "play_sample" }                      // pre-recorded scene
-{ "type": "start_agent", "language": "en" }    // realtime scene: "en" or "zh"
+{ "type": "start_agent" }                      // language comes from the server's .env
 { "type": "mic_audio", "audio": "<base64 pcm16>" }
 { "type": "text", "text": "..." }              // speak a typed line
 { "type": "interrupt" }
 
 // server → client
-{ "type": "ready", "sessionId": "...", "avatar": {...}, "missing": {...} }
+{ "type": "ready" }                            // the socket is up; config came from /api/config
 { "type": "agent_ready" }
-{ "type": "avatar_audio", "turnId": "...", "audio": "<base64>", "isLast": false }
-{ "type": "avatar_frames", "turnId": "...", "frames": ["<base64>"], "isLast": false }
+{ "type": "avatar_audio", "audio": "<base64>", "isLast": false }
+{ "type": "avatar_frames", "frames": ["<base64>"], "isLast": false }
 { "type": "transcript", "role": "user", "text": "..." }
 { "type": "interrupt", "reason": "..." }
-{ "type": "status", "message": "..." } | { "type": "error", "message": "..." }
+{ "type": "error", "message": "..." }
 ```
 
 Rendering a turn takes both message types: `avatar_audio` carries the sound (the

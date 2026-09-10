@@ -7,37 +7,28 @@ import Foundation
 /// reason this mode needs a backend — `SPATIUS_API_KEY` must never reach a device.
 ///
 /// The phone cannot reach the dev machine's localhost, so unlike the Web client the
-/// backend's address has to be told to it. The server prints its LAN address on
-/// startup.
+/// backend's address is a compiled-in constant — see Config.swift. The server prints
+/// its LAN address on startup.
 enum BackendClient {
 
-    /// What `/api/config` reports. Only what this client acts on is parsed.
+    /// What `/api/config` reports — everything this client needs to boot.
     struct ServerConfig {
         let appID: String
         let avatarID: String
         let region: String
         let sampleRate: Int
-        /// Where the realtime scene's WebSocket lives.
+        /// Where the agent's WebSocket lives.
         let realtimeURL: String
-        /// Which credentials each scene is still waiting on, as named in the server's
-        /// `.env`. The sample-audio scene needs only the Spatius pair, so it can run
-        /// while the realtime one is still unconfigured — worth telling the user
-        /// rather than failing at the tap.
-        let missingSample: [String]
-        let missingRealtime: [String]
     }
 
     enum BackendError: LocalizedError {
         case unreachable(String)
-        case missingKeys([String])
         case badResponse(Int)
 
         var errorDescription: String? {
             switch self {
             case .unreachable(let detail):
                 return "Cannot reach the Direct Mode server: \(detail)"
-            case .missingKeys(let keys):
-                return "Server is missing: \(keys.joined(separator: ", "))"
             case .badResponse(let code):
                 return "Session token request failed (HTTP \(code))"
             }
@@ -55,15 +46,12 @@ enum BackendClient {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw BackendError.unreachable("malformed response")
         }
-        let missing = json["missing"] as? [String: Any]
         return ServerConfig(
-            appID: json["SPATIUS_APP_ID"] as? String ?? "",
+            appID: json["appId"] as? String ?? "",
             avatarID: json["avatarId"] as? String ?? "",
             region: json["region"] as? String ?? "us-west",
             sampleRate: json["sampleRate"] as? Int ?? 16000,
-            realtimeURL: json["realtimeUrl"] as? String ?? "",
-            missingSample: missing?["sample"] as? [String] ?? [],
-            missingRealtime: missing?["realtime"] as? [String] ?? []
+            realtimeURL: json["realtimeUrl"] as? String ?? ""
         )
     }
 
@@ -72,9 +60,8 @@ enum BackendClient {
     /// Short-lived — under an hour — so an app left open long enough has to ask again.
     /// The SDK reads it at connect time, so re-minting means reconnecting.
     ///
-    /// No API key is sent: the server uses the one in its own `.env`, which is what a
-    /// real deployment does. The Web demo can pass one because it has a field for it;
-    /// here there is deliberately no such field.
+    /// No API key is sent, and none is held here: the server exchanges the one in its
+    /// own `.env`, which is what a real deployment does.
     static func fetchSessionToken(baseURL: String) async throws -> String {
         guard let url = URL(string: "\(trimmed(baseURL))/api/session-token") else {
             throw BackendError.unreachable("bad address")
@@ -89,12 +76,6 @@ enum BackendClient {
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
 
         guard (200..<300).contains(code) else {
-            // The backend answers a missing .env with a structured body naming the
-            // keys. Surfacing that beats "HTTP 500", which is the first thing every
-            // reader hits.
-            if let keys = json?["missingKeys"] as? [String], !keys.isEmpty {
-                throw BackendError.missingKeys(keys)
-            }
             throw BackendError.badResponse(code)
         }
         guard let token = json?["sessionToken"] as? String else {

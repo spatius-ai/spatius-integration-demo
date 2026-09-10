@@ -1,12 +1,10 @@
-"""One browser connection, and the two scenes it can drive.
+"""One browser connection, and the conversation it drives.
 
 Backend Mode: this server owns the Motion Server connection, so the client is thin
 — it captures microphone audio and renders what comes back, and never talks to
-Spatius itself. Both scenes therefore produce the same thing on the wire, encoded
-audio plus motion messages, and differ only in where the audio came from:
+Spatius itself.
 
-    pre-recorded  a bundled .pcm file  ─────────────────►  avatar session
-    realtime      mic ──ws──► agent (ASR/LLM/TTS) ──────►  avatar session
+    mic ──ws──► agent (ASR/LLM/TTS) ──────► avatar session ────► client
 
 Audio is driven as it arrives rather than collected first: this backend holds the
 avatar connection, so a reply can start moving the mouth while it is still being
@@ -20,7 +18,6 @@ import base64
 import contextlib
 import json
 import logging
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -29,15 +26,10 @@ from fastapi.websockets import WebSocketDisconnect
 
 from app.agent import RealtimeAgent
 from app.avatar.turn import AvatarTurn, AvatarTurnEvent
-from app.config import Settings, missing_for_scene
+from app.config import Settings
 
 
 logger = logging.getLogger(__name__)
-
-# How much of the pre-recorded clip to hand over at a time. ~64ms at 16 kHz PCM16 —
-# streamed rather than sent whole because that is what a real source looks like, and
-# it is the same call either way.
-SAMPLE_CHUNK_BYTES = 2048
 
 
 class BrowserSession:
@@ -50,18 +42,12 @@ class BrowserSession:
         self._active_turn_id: str | None = None
         self._client_avatar_id: str | None = None
         self._agent: RealtimeAgent | None = None
-        self._sample_task: asyncio.Task[None] | None = None
 
     async def run(self) -> None:
         await self._websocket.accept()
-        await self._send(
-            {
-                "type": "ready",
-                "sessionId": str(uuid4()),
-                "avatar": self._settings.public_avatar_config,
-                "missing": missing_for_scene(self._settings),
-            }
-        )
+        # The clients treat this purely as "the socket is up" — what they need to
+        # boot they already fetched from /api/config over HTTP.
+        await self._send({"type": "ready"})
 
         try:
             while True:
@@ -73,9 +59,6 @@ class BrowserSession:
             await self.close()
 
     async def close(self) -> None:
-        if self._sample_task is not None:
-            self._sample_task.cancel()
-            self._sample_task = None
         if self._agent is not None:
             await self._agent.aclose()
             self._agent = None
@@ -83,41 +66,29 @@ class BrowserSession:
 
     # ── Client protocol ────────────────────────────────────────────
     #
-    #   client → server   {type: "set_avatar", avatarId}
-    #                     {type: "play_sample", clip}           pre-recorded scene
-    #                     {type: "start_agent", language?}     realtime scene
+    #   client → server   {type: "set_avatar", avatarId}       which character to drive
+    #                     {type: "start_agent"}                bring the agent up
     #                     {type: "mic_audio", audio}           base64 PCM16
     #                     {type: "text", text}                 speak a typed line
     #                     {type: "interrupt"}
-    #   server → client   {type: "ready", avatar, missing}
+    #   server → client   {type: "ready"}
     #                     {type: "avatar_audio", audio, isLast}
     #                     {type: "avatar_frames", frames[], isLast}
     #                     {type: "agent_ready"}
     #                     {type: "transcript", role, text}
     #                     {type: "interrupt", reason}
-    #                     {type: "status", message} / {type: "error", message}
+    #                     {type: "error", message}
 
     async def _handle_client_message(self, payload: dict[str, Any]) -> None:
         kind = payload.get("type")
 
-        if kind == "ping":
-            await self._send({"type": "pong"})
-
-        elif kind == "set_avatar":
+        if kind == "set_avatar":
             avatar_id = str(payload.get("avatarId", "")).strip()
             if avatar_id:
                 self._client_avatar_id = avatar_id
-                await self._send_status(f"Avatar ID set to: {avatar_id}")
-
-        elif kind == "play_sample":
-            if self._sample_task is not None and not self._sample_task.done():
-                return
-            self._sample_task = asyncio.create_task(
-                self._play_sample(str(payload.get("clip") or ""))
-            )
 
         elif kind == "start_agent":
-            await self._start_agent(str(payload.get("language") or "en"))
+            await self._start_agent()
 
         elif kind == "mic_audio":
             audio_b64 = str(payload.get("audio", ""))
@@ -135,61 +106,11 @@ class BrowserSession:
         else:
             await self._send({"type": "error", "message": f"Unsupported message: {kind}"})
 
-    # ── Scene one: a clip that ships with the demo ────────────────
+    # ── The conversation ──────────────────────────────────────────
 
-    def _assets_dir(self) -> Path:
-        configured = self._settings.sample_audio_file
-        if configured:
-            return Path(configured).expanduser()
-        return Path(__file__).resolve().parents[1] / "assets"
-
-    def _sample_audio_path(self, name: str) -> Path | None:
-        """Resolve a clip name to a file inside the assets directory.
-
-        Resolved and then checked to be under that directory: the name arrives from
-        the client, and without this a path like `../../.env` would be read and
-        streamed straight back out.
-        """
-        directory = self._assets_dir().resolve()
-        candidate = (directory / name).resolve()
-        if directory not in candidate.parents or not candidate.is_file():
-            return None
-        return candidate
-
-    async def _play_sample(self, name: str) -> None:
-        """Drive the avatar from a bundled file. No models, no credentials beyond
-        the Spatius pair — the smallest thing that proves the whole path works."""
-        path = self._sample_audio_path(name)
-        if path is None:
-            await self._send({"type": "error", "message": f"Unknown clip: {name}"})
-            return
-
-        audio = path.read_bytes()
-        try:
-            turn_id = await self._open_avatar_turn()
-            for offset in range(0, len(audio), SAMPLE_CHUNK_BYTES):
-                chunk = audio[offset : offset + SAMPLE_CHUNK_BYTES]
-                is_last = offset + SAMPLE_CHUNK_BYTES >= len(audio)
-                await self._drive_audio(turn_id, chunk, end=is_last)
-            await self._end_turn(turn_id)
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001 — reaches the user as a toast
-            logger.error("sample playback failed: %s", exc)
-            await self._send({"type": "error", "message": str(exc)})
-
-    # ── Scene two: talk to the avatar ─────────────────────────────
-
-    async def _start_agent(self, language: str) -> None:
+    async def _start_agent(self) -> None:
         if self._agent is not None:
             await self._send({"type": "agent_ready"})
-            return
-
-        missing = missing_for_scene(self._settings)["realtime"]
-        if missing:
-            await self._send(
-                {"type": "error", "message": f"missing config: {', '.join(missing)}"}
-            )
             return
 
         # One turn spans a whole reply, and the agent streams it in pieces, so the
@@ -222,7 +143,6 @@ class BrowserSession:
             on_transcript=lambda role, text: asyncio.create_task(
                 self._send({"type": "transcript", "role": role, "text": text})
             ),
-            language=language,
         )
         try:
             await agent.start()
@@ -316,9 +236,6 @@ class BrowserSession:
     # ── Helpers ────────────────────────────────────────────────────
 
     async def _interrupt_current_turn(self, *, reason: str) -> None:
-        if self._sample_task is not None:
-            self._sample_task.cancel()
-            self._sample_task = None
         if self._agent is not None:
             self._agent.interrupt()
         await self._send({"type": "interrupt", "reason": reason})
@@ -336,9 +253,6 @@ class BrowserSession:
         self._active_turn_id = None
         if turn is not None:
             await turn.close()
-
-    async def _send_status(self, message: str) -> None:
-        await self._send({"type": "status", "message": message})
 
     async def _send(self, payload: dict[str, Any]) -> None:
         async with self._send_lock:

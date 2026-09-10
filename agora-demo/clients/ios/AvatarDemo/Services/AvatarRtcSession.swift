@@ -6,13 +6,13 @@ import Foundation
 /// The avatar's RTC session: ask the server for a channel, initialize the SDK, load the
 /// avatar, connect, publish the microphone.
 ///
-/// RTC Mode is the one path where the avatar joins the call itself. This client feeds it
-/// no driving data at all: the agent encodes the animation into the video stream's SEI,
-/// the SDK parses it out to drive rendering, and audio travels on an RTC audio track.
+/// This is the one path where the avatar joins the call itself. This client feeds it no
+/// driving data at all: the agent encodes the animation into the video stream's SEI, the
+/// SDK parses it out to drive rendering, and audio travels on an RTC audio track.
 ///
-///     Direct    client ──audio──►  Motion Server           (client drives)
-///     Backend   client ──mic───►  server ──► Motion Server (server drives)
-///     RTC       client ◄────  RTC channel  ────► agent     (neither — it is in the call)
+///     Direct    client ──audio──►  Motion Server            (client drives)
+///     Backend   client ──mic───►  server ──► Motion Server  (server drives)
+///     Agora     client ◄──  Agora channel  ──► agent        (neither — it is in the call)
 ///
 /// So there is no `send()` and no `yieldAudioData()` here. Once connected, everything
 /// arrives as a stream.
@@ -97,7 +97,7 @@ final class AvatarRtcSession: ObservableObject {
     /// Idempotent: a session bills from creation, and SwiftUI may fire this more than
     /// once. On failure the session is stopped and the guard released, so the caller can
     /// retry.
-    func prepare(baseURL: String, language: String, avatarId: String = "") async {
+    func prepare(baseURL: String, avatarId: String = "") async {
         guard !hasStarted else { return }
         hasStarted = true
         self.baseURL = baseURL
@@ -106,7 +106,7 @@ final class AvatarRtcSession: ObservableObject {
         do {
             status = "Creating a session…"
             let credentials = try await AgentClient.createSession(
-                baseURL: baseURL, language: language, avatarId: avatarId
+                baseURL: baseURL, avatarId: avatarId
             )
             sessionId = credentials.sessionId
             agentUid = credentials.agentUid

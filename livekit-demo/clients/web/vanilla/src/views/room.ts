@@ -1,7 +1,6 @@
 import { RtcSession, stopSessionOnUnload } from '../utils/rtcSession'
 import { DEFAULT_CHARACTERS } from '../data/characters'
 import { pushToast } from '../utils/toast'
-import type { AppConfig } from './configuration'
 
 const DASH_URL = 'https://app.spatius.ai'
 
@@ -13,7 +12,7 @@ const DASH_URL = 'https://app.spatius.ai'
  * call, so the panel holds a microphone and nothing else: no clips to play, and no
  * pause or interrupt, because there is no local playback to act on.
  */
-export function createRoom(config: AppConfig): HTMLElement {
+export function createRoom(): HTMLElement {
   let session: RtcSession | null = null
   let avatarId: string | null = null
   let characterName = ''
@@ -233,7 +232,6 @@ export function createRoom(config: AppConfig): HTMLElement {
       onProgress: (text) => { status = text; renderAll() },
       onDownload: (percent) => { status = `Downloading avatar… ${percent}%`; renderAll() },
       onRendered: () => { rendered = true; renderAll() },
-      onError: (message) => pushToast(message),
     })
     session = next
 
@@ -242,7 +240,7 @@ export function createRoom(config: AppConfig): HTMLElement {
     const superseded = () => session !== next
 
     try {
-      await next.start(stage, id, config.language)
+      await next.start(stage, id)
       if (superseded()) return
       status = 'Connecting the agent…'
       renderAll()

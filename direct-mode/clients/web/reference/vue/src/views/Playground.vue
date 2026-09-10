@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import { DrivingServiceMode } from '@spatius/avatarkit'
-import type { AppConfig } from '../App.vue'
+import type { BackendConfig } from '@direct-core'
 import { useAvatarManager } from '../composables/useAvatarSDK'
 import { useToast } from '../composables/useToast'
 import CharacterList from '../components/CharacterList.vue'
@@ -9,7 +8,7 @@ import ControlPanel from '../components/ControlPanel.vue'
 import StageControls from '../components/StageControls.vue'
 import Toast from '../components/Toast.vue'
 
-defineProps<{ mode: DrivingServiceMode; config: AppConfig }>()
+const props = defineProps<{ config: BackendConfig }>()
 
 const MAX_AVATARS = 4
 
@@ -31,28 +30,8 @@ const {
   removeAll,
 } = useAvatarManager(notify)
 
-/**
- * Stops the clip currently being streamed, set by whichever panel started it.
- *
- * Held here rather than in ControlPanel because interrupting is now reachable
- * from two places, and `controller.interrupt()` alone is not enough: it drops
- * what is buffered, but the sender keeps feeding chunks in and playback picks
- * straight back up.
- */
-let cancelSend: (() => void) | null = null
-
-function registerCancel(cancel: (() => void) | null) {
-  // Clearing means "stop what is running", not just "forget it": the chunk loop
-  // is a chain of timeouts that keeps calling send() on its own, so dropping the
-  // reference alone would leave it feeding a controller that has disconnected.
-  if (cancel === null) cancelSend?.()
-  cancelSend = cancel
-}
-
 function handleInterrupt() {
   activeController.value?.interrupt()
-  cancelSend?.()
-  cancelSend = null
 }
 
 // Update active-cell highlight when activeUid changes
@@ -189,6 +168,7 @@ const isEmpty = computed(() => avatars.value.length === 0 && !loadingCharId.valu
   <div class="playground">
     <div class="playground-left">
       <CharacterList
+        :serverAvatarId="props.config.avatarId"
         :loadingId="loadingCharId"
         :loadProgress="loadProgress"
         :empty="isEmpty"
@@ -229,11 +209,8 @@ const isEmpty = computed(() => avatars.value.length === 0 && !loadingCharId.valu
         :multiMode="multiMode"
         :avatarSlots="avatarSlots"
         :activeUid="activeUid"
-        :scene="config.scene"
-        :language="config.language"
         @slotSelect="setActiveUid"
         @notify="notify"
-        @registerCancel="registerCancel"
       />
     </div>
 

@@ -7,31 +7,21 @@ import Foundation
 /// to Spatius — it captures microphone audio and renders what arrives, so no
 /// credential of any kind reaches the device.
 ///
-/// The phone cannot reach the dev machine's localhost, so the server's address has to
-/// be told to it. The server prints its LAN address on startup.
+/// The phone cannot reach the dev machine's localhost, so the address is fixed at
+/// build time in `Config.backendModeURL` — `../../start.sh` fills in this machine's
+/// LAN address.
 enum BackendClient {
 
-    /// What `/api/config` reports. Only what this client acts on is parsed.
+    /// What `/api/config` reports, and the whole of it.
+    ///
+    /// No credentials: the server holds them and this app has no use for one. The app
+    /// id and region go to `AvatarSDK.initialize`, the avatar id is the character the
+    /// playground opens with, the rate describes the PCM on the WebSocket.
     struct ServerConfig {
         let appID: String
         let avatarID: String
         let region: String
-        let outputSampleRate: Int
         let inputSampleRate: Int
-        /// Which credentials each scene is still waiting on, as named in the server's
-        /// `.env`. The sample-audio scene needs only the Spatius pair, so it can run
-        /// while the realtime one is still unconfigured.
-        let missingSample: [String]
-        let missingRealtime: [String]
-        /// The clips the pre-recorded scene can play, as listed by the server.
-        let clips: [Clip]
-        let clipsHint: String
-    }
-
-    struct Clip: Identifiable, Hashable {
-        let name: String
-        let clip: String
-        var id: String { clip }
     }
 
     enum BackendError: LocalizedError {
@@ -56,22 +46,11 @@ enum BackendClient {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw BackendError.unreachable("malformed response")
         }
-        let missing = json["missing"] as? [String: Any]
-        let clips = (json["clips"] as? [[String: Any]] ?? []).compactMap { entry -> Clip? in
-            guard let name = entry["name"] as? String,
-                  let clip = entry["clip"] as? String else { return nil }
-            return Clip(name: name, clip: clip)
-        }
         return ServerConfig(
             appID: json["appId"] as? String ?? "",
             avatarID: json["avatarId"] as? String ?? "",
             region: json["region"] as? String ?? "us-west",
-            outputSampleRate: json["outputSampleRate"] as? Int ?? 16000,
-            inputSampleRate: json["inputSampleRate"] as? Int ?? 16000,
-            missingSample: missing?["sample"] as? [String] ?? [],
-            missingRealtime: missing?["realtime"] as? [String] ?? [],
-            clips: clips,
-            clipsHint: json["clipsHint"] as? String ?? ""
+            inputSampleRate: json["inputSampleRate"] as? Int ?? 16000
         )
     }
 

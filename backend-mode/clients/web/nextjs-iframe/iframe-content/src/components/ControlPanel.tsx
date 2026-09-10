@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { AvatarController } from '@spatius/avatarkit'
 import type { AvatarInstance } from '../hooks/useAvatarSDK'
-import type { Scene } from '../App'
 import RealtimePanel from './RealtimePanel'
-import { BackendClient, fetchConfig } from '../utils/backendClient'
+import { BackendClient } from '../utils/backendClient'
 
 interface AvatarSlot {
   uid: string
@@ -79,10 +78,6 @@ interface Props {
   activeUid?: string | null
   onSlotSelect?: (uid: string) => void
   onNotify?: (text: string, kind?: 'error' | 'warning') => void
-  /** Which scene is open — it decides what drives the avatar below the status bar. */
-  scene: Scene
-  /** The realtime scene's conversation language, chosen on the config page. */
-  language: string
 }
 
 export default function ControlPanel({
@@ -93,8 +88,6 @@ export default function ControlPanel({
   activeUid,
   onSlotSelect,
   onNotify,
-  scene,
-  language,
 }: Props) {
   const [connected, setConnected] = useState(false)
   /**
@@ -106,32 +99,9 @@ export default function ControlPanel({
    * that window looks like a connection that never happened.
    */
   const [client, setClient] = useState<BackendClient | null>(null)
-  /** Which clip is playing, so only its own button says so. */
-  const [playingClip, setPlayingClip] = useState<string | null>(null)
-  const [clips, setClips] = useState<{ name: string; clip: string }[]>([])
-  const [clipsHint, setClipsHint] = useState('')
   const clientRef = useRef<BackendClient | null>(null)
 
   const hasAvatar = !!activeAvatar?.view && !activeAvatar.loading
-  const sending = playingClip !== null
-
-  // The clips live on the server, so the list comes from there rather than being
-  // repeated here — dropping a .pcm file into its assets directory is enough.
-  useEffect(() => {
-    let cancelled = false
-    fetchConfig()
-      .then(config => {
-        if (cancelled) return
-        setClips(config.clips ?? [])
-        setClipsHint(config.clipsHint ?? '')
-      })
-      .catch(() => {
-        // Not worth reporting: the connection itself surfaces a server that is down.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // The controller changes when a different character is selected, and the client
   // outlives that — so it is handed the current one rather than closing over it.
@@ -155,7 +125,6 @@ export default function ControlPanel({
       onError: (message) => onNotify?.(message),
       onClosed: () => {
         setConnected(false)
-        setPlayingClip(null)
         clientRef.current = null
         setClient(null)
       },
@@ -189,8 +158,8 @@ export default function ControlPanel({
   /**
    * The audio context has to be created inside a user gesture — a browser will not
    * allow it otherwise, and the avatar then renders in silence with nothing
-   * reported. So it is done on the first press of whatever the scene's button is,
-   * rather than needing a button of its own.
+   * reported. So it is done on the first press of the microphone, rather than
+   * needing a button of its own.
    */
   const ensureAudioContext = useCallback(async () => {
     await activeController?.initializeAudioContext()
@@ -209,23 +178,6 @@ export default function ControlPanel({
       clientRef.current = null
     }
   }, [])
-
-  const playSample = useCallback(async (clip: string) => {
-    if (!clientRef.current) return
-    await ensureAudioContext()
-    setPlayingClip(clip)
-    clientRef.current.playSample(clip)
-    // The server streams the clip and reports nothing when it finishes, so this is
-    // released on the next conversation state change rather than by a reply.
-  }, [ensureAudioContext])
-
-  // The avatar going back to idle is what says the clip has finished playing.
-  useEffect(() => {
-    if (sending && activeAvatar?.conversationState === 'idle') {
-      const timer = window.setTimeout(() => setPlayingClip(null), 500)
-      return () => window.clearTimeout(timer)
-    }
-  }, [sending, activeAvatar?.conversationState])
 
   return (
     <div className="control-panel">
@@ -278,41 +230,15 @@ export default function ControlPanel({
 
       {!hasAvatar && <p className="panel-hint">Load a character first</p>}
 
-      {/* What drives the avatar, and the only thing that differs between the two
-          scenes. Both are driven server-side and arrive here as the same audio +
-          motion messages. */}
-      {hasAvatar && scene === 'realtime' && (
+      {/* What drives the avatar. The conversation runs server-side and arrives
+          here as encoded audio + motion messages. */}
+      {hasAvatar && (
         <RealtimePanel
           client={client}
           connected={connected}
-          language={language}
           onBeforeStart={ensureAudioContext}
           onNotify={onNotify}
         />
-      )}
-
-      {hasAvatar && scene !== 'realtime' && (
-        <div className="audio-list">
-          <h4>
-            Pre-recorded audio
-            {clipsHint && <span className="audio-hint" title={clipsHint}>?</span>}
-          </h4>
-          {clips.map(c => (
-            <button
-              key={c.clip}
-              className="secondary full-width audio-btn"
-              disabled={!connected || sending}
-              onClick={() => void playSample(c.clip)}
-            >
-              {playingClip === c.clip ? '...' : `▶ ${c.name}`}
-            </button>
-          ))}
-          <p className="realtime-hint">
-            The clips live on the server and never pass through this page: one is
-            streamed straight into the avatar, and what arrives here is the encoded
-            audio and motion to render.
-          </p>
-        </div>
       )}
     </div>
   )

@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { DrivingServiceMode } from '@spatius/avatarkit'
-import type { AppConfig } from '@/types'
+import type { BackendConfig } from '@spatius-demo/direct-mode-core'
 import { useAvatarManager } from '@/hooks/useAvatarSDK'
 import CharacterList from '@/components/CharacterList'
 import ControlPanel from '@/components/ControlPanel'
@@ -11,13 +10,12 @@ import Toast from '@/components/Toast'
 import { useToast } from '@/hooks/useToast'
 
 interface Props {
-  mode: DrivingServiceMode
-  config: AppConfig
+  config: BackendConfig
 }
 
 const MAX_AVATARS = 4
 
-export default function Playground({ mode, config }: Props) {
+export default function Playground({ config }: Props) {
   const [multiMode, setMultiMode] = useState(false)
   const [loadingCharId, setLoadingCharId] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -35,20 +33,8 @@ export default function Playground({ mode, config }: Props) {
     removeAll,
   } = useAvatarManager(notify)
 
-  /**
-   * Stops the clip currently being streamed, set by whichever panel started it.
-   *
-   * Held here rather than in ControlPanel because interrupting is now reachable
-   * from two places, and `controller.interrupt()` alone is not enough: it drops
-   * what is buffered, but the sender keeps feeding chunks in and playback picks
-   * straight back up.
-   */
-  const cancelSendRef = useRef<(() => void) | null>(null)
-
   const handleInterrupt = useCallback(() => {
     activeController?.interrupt()
-    cancelSendRef.current?.()
-    cancelSendRef.current = null
   }, [activeController])
 
   // Update active-cell highlight when activeUid changes
@@ -187,6 +173,7 @@ export default function Playground({ mode, config }: Props) {
     <div className="playground">
       <div className="playground-left">
         <CharacterList
+          serverAvatarId={config.avatarId}
           loadingId={loadingCharId}
           loadProgress={loadProgress}
           onSelect={handleCharacterSelect}
@@ -240,9 +227,6 @@ export default function Playground({ mode, config }: Props) {
           activeUid={activeUid}
           onSlotSelect={setActiveUid}
           onNotify={notify}
-          cancelSendRef={cancelSendRef}
-          scene={config.scene}
-          language={config.language}
         />
       </div>
 

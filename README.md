@@ -1,4 +1,4 @@
-<h1 align="center">Spatius Integration Demos</h1>
+<h1 align="center">Spatius AvatarKit Demos</h1>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@spatius/avatarkit"><img src="https://img.shields.io/npm/v/%40spatius%2Favatarkit?label=%40spatius%2Favatarkit&color=0ea5e9" alt="npm" /></a>
@@ -16,7 +16,7 @@
 ## Features
 
 - **Runnable examples** — Each demo is self-contained with clients, the required server-side piece, and `.env` config
-- **Three architectures** — Direct, Backend and RTC Mode, plus LiveKit Agents integration paths
+- **Multiple architectures** — Direct Mode, LiveKit Agents, and Backend Mode integration paths
 - **Multi-provider backends** — Swap between OpenAI, Google Gemini, Deepgram, Cartesia, Azure, AWS, and more
 - **Cross-platform** — Web (React, Vue, Vanilla JS, Next.js), iOS, Android, and Flutter
 
@@ -52,32 +52,36 @@
 
 ## Demos
 
-> **New here?** Start with [`direct-mode`](./direct-mode): run its server, then the
-> React client, and play the bundled sample audio. Switch the same UI to realtime
-> conversation once you have LiveKit credentials.
+> **New here?** Start with [`direct-mode`](./direct-mode): fill in its server's `.env`, run
+> the server, then the React client, pick a character and talk.
 
-The three modes differ only in who holds the Motion Server connection:
+Every demo is a realtime conversation with the avatar. All configuration — credentials,
+region, conversation language, voice — lives in the server's `.env`; the clients open straight
+on the playground and only tell the server which character was picked. The demos differ only
+in who holds the Motion Server connection. The two RTC demos share that answer — nobody, the
+avatar is in the call — and differ in where the conversation runs:
 
-| Mode | Who connects to Motion Server | Scenes |
+| Mode | Who connects to Motion Server | Where the conversation runs |
 | --- | --- | --- |
-| [**Direct**](./direct-mode) | the client | sample audio, realtime conversation |
-| [**Backend**](./backend-mode) | the server | sample audio, realtime conversation |
-| [**RTC**](./rtc-mode) | neither — the avatar joins the call itself | realtime conversation |
+| [**Direct**](./direct-mode) | the client | your server (ASR / LLM / TTS over a WebSocket), the client drives the avatar |
+| [**Backend**](./backend-mode) | the server | your server, which also drives the avatar and relays audio + motion |
+| [**LiveKit**](./livekit-demo) | neither — the avatar joins the LiveKit room itself | a LiveKit agent on your machine |
+| [**Agora**](./agora-demo) | neither — the avatar joins the Agora channel itself | Agora's Conversational AI Engine |
 
-| Platform | Direct Mode | Backend Mode | RTC Mode |
-| --- | --- | --- | --- |
-| **Web** | [`direct-mode/clients/web/reference`](./direct-mode/clients/web/reference) — React, Vue, vanilla, Next.js | [`backend-mode/clients/web`](./backend-mode/clients/web) | [`rtc-mode/clients/web`](./rtc-mode/clients/web) |
-| **iOS** | [`direct-mode/clients/ios`](./direct-mode/clients/ios) | [`backend-mode/clients/ios`](./backend-mode/clients/ios) | [`rtc-mode/clients/ios`](./rtc-mode/clients/ios) |
-| **Android** | [`direct-mode/clients/android`](./direct-mode/clients/android) | [`backend-mode/clients/android`](./backend-mode/clients/android) | [`rtc-mode/clients/android`](./rtc-mode/clients/android) |
-| **Flutter** | [`direct-mode/clients/flutter`](./direct-mode/clients/flutter) | [`backend-mode/clients/flutter`](./backend-mode/clients/flutter) | — |
+| Platform | Direct Mode | Backend Mode | LiveKit Demo | Agora Demo |
+| --- | --- | --- | --- | --- |
+| **Web** | [`direct-mode/clients/web/reference`](./direct-mode/clients/web/reference) — React, Vue, vanilla, Next.js | [`backend-mode/clients/web`](./backend-mode/clients/web) | [`livekit-demo/clients/web`](./livekit-demo/clients/web) | [`agora-demo/clients/web`](./agora-demo/clients/web) |
+| **iOS** | [`direct-mode/clients/ios`](./direct-mode/clients/ios) | [`backend-mode/clients/ios`](./backend-mode/clients/ios) | Web-only | [`agora-demo/clients/ios`](./agora-demo/clients/ios) |
+| **Android** | [`direct-mode/clients/android`](./direct-mode/clients/android) | [`backend-mode/clients/android`](./backend-mode/clients/android) | Web-only | [`agora-demo/clients/android`](./agora-demo/clients/android) |
+| **Flutter** | [`direct-mode/clients/flutter`](./direct-mode/clients/flutter) | [`backend-mode/clients/flutter`](./backend-mode/clients/flutter) | Web-only | Web-only |
 
 For LiveKit Agents specifically, see [`livekit-agent-quickstart`](./platform-integrations/livekit-agents-demo/livekit-agent-quickstart) and the [reference demo](./platform-integrations/livekit-agents-demo/livekit-agents-reference-demo).
 
 Transport options such as LiveKit, Agora, and your own WebSocket transport live inside the relevant integration docs. [`platform-integrations/livekit-room-demo`](./platform-integrations/livekit-room-demo) is the minimal LiveKit example for `@spatius/avatarkit-rtc` (the RTC Adapter) with `LiveKitProvider`: it validates token issuance, room connection, adapter init, avatar load, and mic publishing. Remote audio playback and motion rendering only happen when a producer publishes into the room — this demo has no agent or Backend Mode publisher. Not the full Backend Mode + RTC transport voice-agent demo.
 
-### Direct Mode token servers vs Backend Mode servers
+### Direct Mode servers vs Backend Mode servers
 
-Direct Mode clients connect to Motion Server directly, but they still need a short-lived Session Token. The examples under `direct-mode/servers/` are token servers only: they keep `SPATIUS_API_KEY` on the backend and mint Session Tokens for clients. They do not run ASR, LLM, TTS, Motion Server connections, or audio / motion relay.
+Direct Mode clients connect to Motion Server directly, but they still need a short-lived Session Token. The server under `direct-mode/servers/python` keeps `SPATIUS_API_KEY` on the backend, mints Session Tokens, and runs the conversation (ASR / LLM / TTS) over a WebSocket — the client hands the assistant audio to the SDK itself. It never connects to Motion Server and never relays motion.
 
 Backend Mode servers are runtime servers. They own the ASR / LLM / TTS pipeline, use a Server SDK to connect to Motion Server, and deliver encoded audio + motion messages to clients.
 
@@ -91,8 +95,8 @@ git clone https://github.com/spatius-ai/spatius-integration-demo.git
 cd spatius-integration-demo/direct-mode/servers/python
 
 cp .env.example .env
-# Fill SPATIUS_API_KEY and SPATIUS_APP_ID. The realtime scene also needs the
-# LiveKit values; the sample-audio scene runs without them.
+# Fill in the Spatius and LiveKit values; language and voice live here too.
+# The server refuses to start while a required key is missing.
 
 uv run app.py
 ```
@@ -105,12 +109,9 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:5173`.
-
-Pick a scene on the configuration page — **Sample audio** plays a bundled clip,
-**Realtime conversation** runs a voice agent on the server — then choose a character and
-press Start. Anything left blank in `.env` can be filled in on that page instead, which is
-what makes the demo reachable from a phone on the same network.
+Open `http://localhost:5173`. The client opens on the playground: choose a character, press
+Start, and talk. Nothing is configured on the client — it reads the server address from an
+environment variable (defaulting to the same host) and everything else from the server.
 
 The same client is provided for Vue, vanilla JS and Next.js alongside `react/`; see
 [`direct-mode/README.md`](./direct-mode/README.md).

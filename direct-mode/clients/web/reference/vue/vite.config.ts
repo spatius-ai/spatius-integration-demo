@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import { avatarkitVitePlugin } from '@spatius/avatarkit/vite'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-// The backend calls, SDK lifecycle and scene logic the framework clients share.
+// The backend calls the framework clients share.
 // Consumed as source, so there is no build step before `pnpm dev`.
 const directCore = resolve(__dirname, '../../shared/src')
 

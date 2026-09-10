@@ -87,43 +87,40 @@ data class StatusRow(
  * The playground, laid out for a phone.
  *
  * Same parts as the Web client and in the same order, folded into one column: the
- * avatar with its playback controls, then the status bar, then whatever drives the
- * avatar for this scene. What the Web version puts in a left-hand list — the
- * characters — is a dialog here, opened from the header; a phone has no room for a
- * permanent sidebar, and the avatar is what the screen is for.
+ * avatar with its playback controls, then the status bar, then the microphone. What
+ * the Web version puts in a left-hand list — the characters — is a dialog here,
+ * opened from the header; a phone has no room for a permanent sidebar, and the
+ * avatar is what the screen is for.
  */
 @Composable
 fun PlaygroundScreen(
-    scene: Scene,
     characterName: String,
     loading: Boolean,
     loadProgress: Int,
     rendered: Boolean,
     errorMsg: String,
     statusRows: List<StatusRow>,
-    clips: List<ServerClip>,
     /** Whether the WebSocket to the server is up. The server holds the
      *  Motion Server connection; this is the one this app has. */
     connected: Boolean,
     playback: PlaybackState,
-    playingClip: String?,
     canCreateAvatarView: Boolean,
     micOn: Boolean,
     agentConnecting: Boolean,
     agentReady: Boolean,
     transcript: List<Pair<String, String>>,
     onPickCharacter: () -> Unit,
-    onPlayClip: (String) -> Unit,
     onInterrupt: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onToggleMic: () -> Unit,
     onSay: (String) -> Unit,
     onAvatarViewCreated: (AvatarView) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(DS.bg)
     ) {
@@ -211,40 +208,12 @@ fun PlaygroundScreen(
                 }
             }
 
-            // ---- The SDK callbacks and the clips that drive the avatar.
-            //
-            // Side by side in the pre-recorded scene, each scrolling in its own column:
-            // the clips are what gets tapped and the status is what gets read while the
-            // avatar answers, and stacked they do not fit on one screen — every clip
-            // meant scrolling down to tap and back up to watch. The realtime scene has
-            // no clip list, so the status keeps the full width there.
-            val clipsBeside = rendered && scene == Scene.Sample
-            if (statusRows.isNotEmpty() || clipsBeside) {
-                item {
-                    if (clipsBeside) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().height(240.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                                StatusCard(statusRows = statusRows, bounded = true)
-                            }
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                                ClipsCard(
-                                    clips = clips,
-                                    playingClip = playingClip,
-                                    connected = connected,
-                                    onPlayClip = onPlayClip,
-                                )
-                            }
-                        }
-                    } else if (statusRows.isNotEmpty()) {
-                        StatusCard(statusRows = statusRows, bounded = false)
-                    }
-                }
+            // ---- The SDK callbacks.
+            if (statusRows.isNotEmpty()) {
+                item { StatusCard(statusRows = statusRows) }
             }
 
-            if (rendered && scene == Scene.Realtime) {
+            if (rendered) {
                 item {
                     RealtimePanel(
                         connected = connected,
@@ -262,7 +231,7 @@ fun PlaygroundScreen(
     }
 }
 
-/** The realtime scene's controls: one microphone, in place of the clip list. */
+/** The controls: one microphone, and a way to type instead. */
 @Composable
 private fun RealtimePanel(
     connected: Boolean,
@@ -362,9 +331,9 @@ private fun RealtimePanel(
             }
 
             Text(
-                text = "The conversation runs on the backend — ASR, LLM and TTS — and its " +
-                    "speech arrives here as PCM over a WebSocket. That audio goes to " +
-                    "controller.send(), exactly like the pre-recorded clips do.",
+                text = "The conversation runs on the server — ASR, LLM and TTS — and the " +
+                    "reply is driven into the avatar there. This app only renders the " +
+                    "audio and motion that come back.",
                 color = DS.muted,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -375,38 +344,20 @@ private fun RealtimePanel(
 /**
  * The SDK callbacks, one row each.
  *
- * Scrolls within itself: beside the clip list it gets half the width and a fixed
- * height, and these rows are worth reading while the avatar answers rather than being
- * cut off.
+ * No scroller of its own: the LazyColumn hands its items unbounded height, and a
+ * scroller given that throws rather than guessing. The card is as tall as its rows
+ * and the page scrolls instead.
  */
 @Composable
-private fun StatusCard(
-    statusRows: List<StatusRow>,
-    /**
-     * Whether this card sits in a row of a fixed height, beside the clip list.
-     *
-     * It decides whether the rows scroll inside the card. Scrolling needs a bounded
-     * height, and on its own in the LazyColumn this card has none — the list hands its
-     * items unbounded height, and a scroller given that throws rather than guessing. So
-     * beside the clips it scrolls within its 240dp; alone it is as tall as its rows and
-     * the page scrolls instead.
-     */
-    bounded: Boolean,
-) {
+private fun StatusCard(statusRows: List<StatusRow>) {
     Card(
-        modifier = if (bounded) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
             .border(1.dp, DS.panelBorder, RoundedCornerShape(14.dp)),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = DS.panel),
     ) {
         Column(
-            modifier = Modifier
-                .then(
-                    if (bounded) {
-                        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                    } else Modifier.fillMaxWidth()
-                )
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             statusRows.forEach { row ->
@@ -417,11 +368,11 @@ private fun StatusCard(
                 ) {
                     // One line per row, like the other clients: the callback's name
                     // is documentation, not status, and a second line of it doubles
-                    // the height of a panel that has to fit beside the controls.
+                    // the height of the panel.
                     //
-                    // Both sides get a weight so neither can starve the other: at half
-                    // the screen's width an unconstrained value pushes the label out
-                    // and then wraps to one character per line.
+                    // Both sides get a weight so neither can starve the other: an
+                    // unconstrained value pushes the label out and then wraps to one
+                    // character per line.
                     Text(
                         row.label,
                         color = DS.text,
@@ -444,81 +395,6 @@ private fun StatusCard(
                     )
                 }
             }
-        }
-    }
-}
-
-/**
- * The clips this scene can send. Scrolls within itself, for the same reason as
- * [StatusCard].
- */
-@Composable
-private fun ClipsCard(
-    clips: List<ServerClip>,
-    playingClip: String?,
-    connected: Boolean,
-    onPlayClip: (String) -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxSize()
-            .border(1.dp, DS.panelBorder, RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = DS.panel),
-    ) {
-        Column(
-            // Always bounded: this card only ever appears inside the fixed-height row
-            // beside the status card, which is what makes scrolling here legal.
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                "Pre-recorded audio",
-                color = DS.title,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            clips.forEach { entry ->
-                val isSending = playingClip == entry.clip
-                // Disabled until the socket is up as well as while one is in flight:
-                // a tap before then is sent to nobody, and the row just goes quiet.
-                val enabled = connected && playingClip == null
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, DS.panelBorder, RoundedCornerShape(8.dp))
-                        .clickable(enabled = enabled) { onPlayClip(entry.clip) }
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        Icons.Filled.GraphicEq,
-                        contentDescription = null,
-                        tint = if (enabled) DS.text else DS.muted,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Text(
-                        text = if (isSending) "..." else entry.name,
-                        color = if (enabled) DS.text else DS.muted,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            Text(
-                "The clips live on the server and never pass through this app: one is "
-                    + "streamed straight into the avatar, and what arrives here is the "
-                    + "encoded audio and motion to render.",
-                color = DS.muted,
-                fontSize = 9.sp,
-                lineHeight = 12.sp,
-            )
         }
     }
 }

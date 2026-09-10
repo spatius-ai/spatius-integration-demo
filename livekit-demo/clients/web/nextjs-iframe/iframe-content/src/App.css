@@ -1,0 +1,566 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* --- Layout --- */
+.app {
+  min-height: 100vh;
+}
+
+/* Shown when the demo server cannot be reached or has not been configured. There is
+   nothing else on the page at that point — the room needs the App ID this state
+   failed to fetch. */
+.boot-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.boot-error-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  max-width: 32rem;
+  padding: 28px 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+
+.boot-error-box h1 {
+  font-size: 20px;
+}
+
+.boot-error-box p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.boot-error-hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* --- Shared --- */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px;
+  transition: all 0.2s;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--primary);
+  color: white;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+button.secondary {
+  background: var(--border);
+  color: var(--text);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: #cbd5e1;
+}
+
+input, select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: var(--primary);
+}
+
+/* --- The playground --- */
+.playground {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.playground-left {
+  width: 200px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  padding: 20px;
+  overflow: visible;
+  position: relative;
+  z-index: 50;
+}
+
+.playground-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playground-right {
+  width: 260px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* Character list */
+.character-list h3 {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.character-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Nothing loaded yet: every other control is inert until a character is picked,
+   which reads as a broken page rather than a first step. The pulse says where to
+   start, and stops as soon as one is chosen. */
+/* Marks the one control worth clicking while the demo cannot go anywhere else:
+   the character list before anything is loaded, then Start before there is a
+   session. Both stop as soon as they are used. */
+.needs-pick {
+  /* A solid border under the animated glow, so the outline holds its shape at
+     every point in the cycle instead of depending on the shadow alone. */
+  border: 2px solid #22c55e;
+  border-radius: var(--radius-sm);
+  animation: pick-pulse 1.6s ease-in-out infinite;
+}
+
+.character-items.needs-pick {
+  /* Padding so the ring sits off the buttons rather than tight against them;
+     the negative margin keeps the list itself where it was. */
+  padding: 8px;
+  margin: -8px;
+}
+
+/* Never fades out entirely — the dim half of the cycle still reads as a lit
+   border, so the pulse is the glow breathing rather than the ring blinking away. */
+@keyframes pick-pulse {
+  0%, 100% {
+    border-color: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3), 0 0 22px rgba(34, 197, 94, 0.75);
+  }
+  50% {
+    border-color: #4ade80;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.16), 0 0 8px rgba(34, 197, 94, 0.3);
+  }
+}
+
+/* Anyone who has asked not to see motion still gets the hint, just held still. */
+@media (prefers-reduced-motion: reduce) {
+  .needs-pick {
+    animation: none;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3), 0 0 22px rgba(34, 197, 94, 0.75);
+  }
+}
+
+.character-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 14px;
+}
+
+.character-item:hover:not(:disabled) {
+  background: #eef2ff;
+}
+
+.character-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.character-progress {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Add custom character */
+.add-btn {
+  border: 1px dashed var(--border);
+  background: transparent;
+}
+
+.add-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: #eef2ff;
+}
+
+.add-avatar {
+  background: var(--border) !important;
+  color: var(--text-secondary) !important;
+  font-size: 18px;
+}
+
+.custom-id-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.custom-id-input input {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.custom-id-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.custom-id-actions button {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px;
+}
+
+/* Guide image in character list — expands to the right */
+
+/* Guide thumbnail in the character list: a small image that blows up on hover, so
+   "where do character IDs come from" is answerable without leaving the page. */
+.guide-thumb {
+  display: block;
+  border-radius: 6px;
+  overflow: visible;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  position: relative;
+}
+
+.list-guide {
+  margin-top: 16px;
+  width: 100%;
+  border-radius: 6px;
+}
+
+.list-guide img {
+  object-fit: contain;
+  transform-origin: top left;
+}
+
+.list-guide:hover img {
+  transform: scale(5);
+  z-index: 1000;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Center header */
+.center-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.avatar-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Avatar canvas */
+/* Wraps the canvas so the playback controls can sit over it. The canvas keeps its
+   own layout; this only provides the positioning context and inherits the flex
+   sizing the canvas used to have. */
+.canvas-stage {
+  flex: 1;
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+
+.avatar-canvas {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  background: #0a0a0a;
+  position: relative;
+}
+
+.avatar-canvas.grid-1 { grid-template-columns: 1fr; }
+
+.canvas-cell {
+  position: relative;
+  overflow: hidden;
+  background: #111;
+}
+
+.canvas-cell.active-cell {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.canvas-container {
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 16px;
+  background: #111;
+}
+
+.canvas-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  font-size: 14px;
+}
+
+/* Control panel */
+.control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-panel h3 {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* --- The microphone panel --- */
+
+.realtime-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.realtime-panel h4 {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mic-btn {
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.mic-btn svg {
+  width: 38px;
+  height: 38px;
+  fill: currentColor;
+}
+
+.mic-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.mic-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.mic-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The mic reuses .needs-pick, so the green ring means the same thing here as it
+   does on the character list: this is the control worth using now. Two overrides,
+   because that rule is written for rectangles:
+   round, not --radius-sm; and box-sizing so the 2px border does not push the icon
+   off centre in a button sized to the pixel. */
+.mic-btn.needs-pick {
+  border-radius: 50%;
+  box-sizing: border-box;
+  /* Restated because .mic-btn's `border: none` is declared later in this file than
+     .needs-pick and matches just as specifically, so it would otherwise win and
+     leave the hint as a glow with no ring inside it. */
+  border: 2px solid #22c55e;
+}
+
+/* Recording: red, with a halo that keeps going so it is obvious the mic is live
+   even when nobody is talking. */
+.mic-btn.on {
+  background: var(--error);
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+  animation: mic-live 1.8s ease-out infinite;
+}
+
+.mic-btn.on:hover {
+  background: #dc2626;
+}
+
+@keyframes mic-live {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  70% { box-shadow: 0 0 0 18px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.mic-state {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.realtime-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── Floating notices ─────────────────────────────────────────────── */
+/* SDK errors and guidance surfaced outside the developer console. */
+.toast-stack {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: max-content;
+  max-width: min(32rem, calc(100vw - 2.5rem));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #fff;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast-error { background: #b4232b; }
+.toast-warning { background: #9a6412; }
+
+.toast-text { flex: 1; word-break: break-word; }
+
+.toast-close {
+  flex: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.toast-close:hover { opacity: 1; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-0.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

@@ -14,13 +14,6 @@ const props = defineProps<{
   /** The one connection to the server; null until it has been opened. */
   client: BackendClient | null
   connected: boolean
-  /**
-   * Which language the conversation runs in, chosen on the config page.
-   *
-   * Not switchable here: recognition, synthesis and the persona are all fixed when
-   * the agent session is built, so changing it means a new session.
-   */
-  language: string
   /** Creates the audio context, which a browser only allows inside a user gesture. */
   onBeforeStart: () => Promise<void>
 }>()
@@ -28,11 +21,11 @@ const props = defineProps<{
 const emit = defineEmits<{ notify: [text: string, kind?: 'error' | 'warning'] }>()
 
 /**
- * The realtime scene's controls: one microphone, in place of the clip button.
+ * The controls: one microphone, and a way to type instead.
  *
  * Everything conversational happens on the server — the mic goes up as PCM, the
- * agent's reply is driven into the avatar there, and what comes back is the same
- * encoded audio + motion the pre-recorded scene produces.
+ * agent's reply is driven into the avatar there, and what comes back is encoded
+ * audio + motion to render.
  */
 const agentReady = ref(false)
 const starting = ref(false)
@@ -100,14 +93,14 @@ async function ensureAgent(): Promise<boolean> {
   if (agentReady.value) return true
 
   // Brought up on the first press rather than on mount: it costs a model session,
-  // and someone who only wants the pre-recorded scene should not pay for one by
-  // loading the page.
+  // and someone who only opened the page to look at the avatar should not pay for
+  // one.
   starting.value = true
   try {
     await props.onBeforeStart()
     // Awaited rather than fired off: microphone audio pushed before the agent
     // exists is dropped, which presents as a mic that records nothing.
-    await props.client.startAgent(props.language)
+    await props.client.startAgent()
     agentReady.value = true
     return true
   } catch (e: any) {

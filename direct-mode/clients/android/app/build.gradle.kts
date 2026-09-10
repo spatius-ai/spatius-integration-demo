@@ -39,8 +39,7 @@ android {
         // server's .env and never reach the device — see BackendClient.
         //
         // A phone cannot reach the dev machine's localhost, so this is the LAN address
-        // the server prints on startup. Seeded from local.properties for convenience
-        // and editable on the configuration screen.
+        // the server prints on startup. The only source: set it in local.properties.
         buildConfigField(
             "String",
             "DIRECT_MODE_URL",
@@ -89,7 +88,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

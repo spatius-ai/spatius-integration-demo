@@ -4,11 +4,11 @@ import 'dart:typed_data';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// The realtime scene's agent connection.
+/// The agent connection.
 ///
 /// Direct Mode drives the avatar from this device, so what comes back here is plain
 /// audio: the agent does ASR → LLM → TTS and returns PCM, and the caller feeds it to
-/// the controller exactly as it would a bundled clip. The avatar never joins anything.
+/// the controller as it would any other PCM16 source. The avatar never joins anything.
 class RealtimeClient {
   RealtimeClient({
     required this.onAudio,
@@ -43,13 +43,11 @@ class RealtimeClient {
   /// Whether the agent has answered `ready`. Audio sent before then is dropped.
   bool isReady = false;
 
-  bool get isConnected => _channel != null;
-
   /// Connect and wait for the agent to report ready.
   ///
   /// Returns once `ready` arrives: audio pushed before that is discarded by the
   /// server, which presents as a microphone that records and is never answered.
-  Future<void> connect(String url, {String language = 'en', Duration timeout = const Duration(seconds: 20)}) async {
+  Future<void> connect(String url, {Duration timeout = const Duration(seconds: 20)}) async {
     await close();
 
     final ready = Completer<void>();
@@ -101,7 +99,9 @@ class RealtimeClient {
       cancelOnError: false,
     );
 
-    channel.sink.add(jsonEncode({'type': 'start', 'language': language}));
+    // No settings travel with it: the language, the models and the voice are the
+    // server's, fixed when it builds the agent session.
+    channel.sink.add(jsonEncode({'type': 'start'}));
     await ready.future.timeout(
       timeout,
       onTimeout: () => throw StateError('The agent did not become ready in time'),
@@ -118,11 +118,6 @@ class RealtimeClient {
   void sendText(String text) {
     if (!isReady) return;
     _channel?.sink.add(jsonEncode({'type': 'text', 'text': text}));
-  }
-
-  void interrupt() {
-    if (!isReady) return;
-    _channel?.sink.add(jsonEncode({'type': 'interrupt'}));
   }
 
   Future<void> close() async {

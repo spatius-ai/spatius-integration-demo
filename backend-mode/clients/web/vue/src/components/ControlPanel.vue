@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, shallowRef, computed, watch, onUnmounted } from 'vue'
 import type { AvatarController } from '@spatius/avatarkit'
 import type { AvatarInstance } from '../composables/useAvatarSDK'
-import type { Scene } from '../App.vue'
 import RealtimePanel from './RealtimePanel.vue'
-import { BackendClient, fetchConfig } from '../utils/backendClient'
+import { BackendClient } from '../utils/backendClient'
 
 interface AvatarSlot {
   uid: string
@@ -81,10 +80,6 @@ const props = defineProps<{
   multiMode?: boolean
   avatarSlots?: AvatarSlot[]
   activeUid?: string | null
-  /** Which scene is open — it decides what drives the avatar below the status bar. */
-  scene: Scene
-  /** The realtime scene's conversation language, chosen on the config page. */
-  language: string
 }>()
 
 const emit = defineEmits<{
@@ -97,26 +92,8 @@ const connected = ref(false)
 // strips its private fields from the inferred type and wraps a live WebSocket
 // in a reactive proxy. Only the identity of the client needs to be reactive.
 const client = shallowRef<BackendClient | null>(null)
-/** Which clip is playing, so only its own button says so. */
-const playingClip = ref<string | null>(null)
-const clips = ref<{ name: string; clip: string }[]>([])
-const clipsHint = ref('')
 
 const hasAvatar = computed(() => !!props.activeAvatar?.view && !props.activeAvatar.loading)
-const sending = computed(() => playingClip.value !== null)
-
-// The clips live on the server, so the list comes from there rather than being
-// repeated here — dropping a .pcm file into its assets directory is enough.
-onMounted(() => {
-  fetchConfig()
-    .then((config) => {
-      clips.value = config.clips ?? []
-      clipsHint.value = config.clipsHint ?? ''
-    })
-    .catch(() => {
-      // Not worth reporting: the connection itself surfaces a server that is down.
-    })
-})
 
 // The controller changes when a different character is selected, and the client
 // outlives that — so it is handed the current one rather than closing over it.
@@ -144,7 +121,6 @@ watch(
       onError: (message) => emit('notify', message),
       onClosed: () => {
         connected.value = false
-        playingClip.value = null
         client.value = null
       },
     })
@@ -178,42 +154,14 @@ watch(
 /**
  * The audio context has to be created inside a user gesture — a browser will not
  * allow it otherwise, and the avatar then renders in silence with nothing
- * reported. So it is done on the first press of whatever the scene's button is,
- * rather than needing a button of its own.
+ * reported. So it is done on the first press of the microphone, rather than
+ * needing a button of its own.
  */
 async function ensureAudioContext() {
   await props.activeController?.initializeAudioContext()
 }
 
-async function playSample(clip: string) {
-  if (!client.value) return
-  await ensureAudioContext()
-  playingClip.value = clip
-  client.value.playSample(clip)
-  // The server streams the clip and reports nothing when it finishes, so this is
-  // released on the next conversation state change rather than by a reply.
-}
-
-// The avatar going back to idle is what says the clip has finished playing.
-let idleTimer: number | null = null
-watch(
-  [sending, () => props.activeAvatar?.conversationState],
-  ([isSending, state]) => {
-    if (idleTimer !== null) {
-      window.clearTimeout(idleTimer)
-      idleTimer = null
-    }
-    if (isSending && state === 'idle') {
-      idleTimer = window.setTimeout(() => {
-        playingClip.value = null
-        idleTimer = null
-      }, 500)
-    }
-  },
-)
-
 onUnmounted(() => {
-  if (idleTimer !== null) window.clearTimeout(idleTimer)
   client.value?.close()
   client.value = null
 })
@@ -272,37 +220,14 @@ function isErrorRow(key: string, value: string | null) {
 
     <p class="panel-hint" v-if="!hasAvatar">Load a character first</p>
 
-    <!-- What drives the avatar, and the only thing that differs between the two
-         scenes. Both are driven server-side and arrive here as the same audio +
-         motion messages. -->
+    <!-- What drives the avatar. The conversation runs server-side and arrives
+         here as encoded audio + motion messages. -->
     <RealtimePanel
-      v-if="hasAvatar && scene === 'realtime'"
+      v-if="hasAvatar"
       :client="client"
       :connected="connected"
-      :language="language"
       :onBeforeStart="ensureAudioContext"
       @notify="(text, kind) => emit('notify', text, kind)"
     />
-
-    <div class="audio-list" v-if="hasAvatar && scene !== 'realtime'">
-      <h4>
-        Pre-recorded audio
-        <span class="audio-hint" v-if="clipsHint" :title="clipsHint">?</span>
-      </h4>
-      <button
-        v-for="c in clips"
-        :key="c.clip"
-        class="secondary full-width audio-btn"
-        :disabled="!connected || sending"
-        @click="playSample(c.clip)"
-      >
-        {{ playingClip === c.clip ? '...' : `▶ ${c.name}` }}
-      </button>
-      <p class="realtime-hint">
-        The clips live on the server and never pass through this page: one is
-        streamed straight into the avatar, and what arrives here is the encoded
-        audio and motion to render.
-      </p>
-    </div>
   </div>
 </template>

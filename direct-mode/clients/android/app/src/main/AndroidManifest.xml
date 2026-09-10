@@ -3,8 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- The realtime scene captures the microphone; the pre-recorded one does not,
-         so this is requested at the first tap rather than on launch. -->
+    <!-- Requested at the first microphone tap rather than on launch. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <application

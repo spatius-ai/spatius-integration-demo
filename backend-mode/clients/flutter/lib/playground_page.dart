@@ -3,24 +3,15 @@ import 'package:spatius_avatarkit/spatius_avatarkit.dart' hide ConnectionState, 
 
 import 'avatar_view_model.dart';
 import 'characters.dart';
-import 'config_check_page.dart';
 
 class PlaygroundPage extends StatefulWidget {
   const PlaygroundPage({
     super.key,
-    required this.baseUrl,
-    required this.scene,
-    required this.language,
     required this.configuredAvatarId,
-    required this.clips,
   });
 
-  final String baseUrl;
-  final Scene scene;
-  final Lang language;
   /// Whatever the server nominates, so the playground is never empty on arrival.
   final String configuredAvatarId;
-  final List<ServerClip> clips;
 
   @override
   State<PlaygroundPage> createState() => _PlaygroundPageState();
@@ -42,9 +33,6 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
   void initState() {
     super.initState();
     _vm.addListener(_onVmChanged);
-    _vm.baseUrl = widget.baseUrl;
-    _vm.language = widget.language == Lang.zh ? 'zh' : 'en';
-    _vm.clips = widget.clips;
     if (widget.configuredAvatarId.isNotEmpty) {
       _loadCharacter(widget.configuredAvatarId);
     }
@@ -86,13 +74,8 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
           // 2. Status bar
           _buildStatusBar(),
           const Divider(height: 1),
-          // The two scenes differ only in where the audio comes from: a clip the
-          // server already has, or this device's microphone. Both arrive back as the
-          // same audio-plus-motion pair, so everything below the split is shared.
           Expanded(
-            child: SingleChildScrollView(
-              child: widget.scene == Scene.sample ? _buildClipList() : _buildHostPanel(),
-            ),
+            child: SingleChildScrollView(child: _buildHostPanel()),
           ),
         ],
       ),
@@ -431,61 +414,7 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
     );
   }
 
-  Widget _buildClipList() {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Pre-recorded audio',
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          for (final entry in _vm.clips)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: InkWell(
-                // Disabled until the socket is up as well as while one is in flight:
-                // a tap before then is sent to nobody, and the row just goes quiet.
-                onTap: _vm.backendConnected && _vm.playingClip == null
-                    ? () => _vm.playSample(entry.clip)
-                    : null,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.graphic_eq, size: 14),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _vm.playingClip == entry.clip ? '...' : entry.name,
-                        style: theme.textTheme.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ]),
-                ),
-              ),
-            ),
-          const SizedBox(height: 8),
-          Text(
-            'The clips live on the server and never pass through this app: one is '
-            'streamed straight into the avatar, and what arrives here is the encoded '
-            'audio and motion to render.',
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// The realtime scene: the microphone, and a way to type instead.
+  /// The live conversation: the microphone, and a way to type instead.
   ///
   /// No Connect button — the socket opens with the avatar. The same shape as the iOS
   /// client: one large microphone, the line of text under it that says what it is

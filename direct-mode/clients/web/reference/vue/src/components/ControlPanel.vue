@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed } from 'vue'
 import type { AvatarController } from '@spatius/avatarkit'
 import type { AvatarInstance } from '../composables/useAvatarSDK'
-import type { Scene } from '../App.vue'
 import RealtimePanel from './RealtimePanel.vue'
-import { PCM_ASSETS, AUDIO_SOURCE_HINT } from '../data/audioAssets'
-import { loadPcmFile, sendPcmChunks } from '../utils/audio'
 
 interface AvatarSlot {
   uid: string
@@ -86,24 +83,12 @@ const props = defineProps<{
   multiMode?: boolean
   avatarSlots?: AvatarSlot[]
   activeUid?: string | null
-  /** Which scene is open — it decides what drives the avatar below the status bar. */
-  scene: Scene
-  /** The realtime scene's conversation language, chosen on the config page. */
-  language: string
 }>()
 
 const emit = defineEmits<{
   slotSelect: [uid: string]
   notify: [text: string, kind?: 'error' | 'warning']
-  /** Hands the stop-sending callback up, so the on-stage controls can interrupt
-   *  a clip this panel started. */
-  registerCancel: [cancel: (() => void) | null]
 }>()
-
-// Track which clip is playing, not just that one is: swapping every button's
-// label at once resizes them and reflows the panel, which stutters the canvas.
-const sendingPath = ref<string | null>(null)
-const sending = computed(() => sendingPath.value !== null)
 
 const connected = computed(() => props.activeAvatar?.connectionState === 'connected')
 // Note the first clause: with no avatar at all, `activeAvatar?.view` is undefined
@@ -121,42 +106,6 @@ async function handleStart() {
     emit('notify', `Failed to connect: ${e?.message ?? e}`)
   }
 }
-
-async function handleSendPcm(path: string) {
-  // Direct Mode has no session until start() runs, so audio sent now would be
-  // dropped silently. Say so instead of leaving a dead button.
-  if (!connected.value) {
-    emit('notify', 'Please click Start to connect before sending audio.', 'warning')
-    return
-  }
-  const controller = props.activeController
-  if (!controller || sending.value) return
-  sendingPath.value = path
-  try {
-    // The audio context is already warmed up by handleStart; doing it here
-    // again stalls the first frames of playback.
-    const data = await loadPcmFile(path)
-    // Wrapped so interrupting from the stage controls also clears this panel's
-    // "sending" state — otherwise the clip stops but its button stays on '...'.
-    const stop = sendPcmChunks(
-      data,
-      (chunk, end) => controller.send(chunk.buffer as ArrayBuffer, end),
-      () => (sendingPath.value = null),
-    )
-    emit('registerCancel', () => {
-      stop()
-      sendingPath.value = null
-    })
-  } catch (e: any) {
-    console.error('Send failed:', e)
-    emit('notify', `Failed to send audio: ${e?.message ?? e}`)
-    sendingPath.value = null
-  }
-}
-
-watch(connected, (isConnected) => {
-  if (!isConnected) emit('registerCancel', null)
-})
 
 function statusValueClass(key: string, value: string | null) {
   return [
@@ -230,32 +179,14 @@ function statusValueClass(key: string, value: string | null) {
 
     <p class="panel-hint" v-if="!hasAvatar">Load a character first</p>
 
-    <!-- What drives the avatar, and the only thing that differs between the two
-         scenes: a list of clips to send, or a microphone whose replies come back
-         from the agent. Both end at controller.send(). -->
+    <!-- What drives the avatar: a microphone whose replies come back from the
+         agent as PCM, handed straight to controller.send(). -->
     <RealtimePanel
-      v-if="hasAvatar && scene === 'realtime'"
+      v-if="hasAvatar"
       :controller="activeController"
       :connected="connected"
-      :language="language"
       @notify="(text, kind) => emit('notify', text, kind)"
     />
-
-    <div class="audio-list" v-if="hasAvatar && scene !== 'realtime'">
-      <h4>
-        Audio Files
-        <span class="audio-hint" :title="AUDIO_SOURCE_HINT">?</span>
-      </h4>
-      <button
-        v-for="a in PCM_ASSETS"
-        :key="a.path"
-        class="secondary full-width audio-btn"
-        :disabled="sending"
-        @click="handleSendPcm(a.path)"
-      >
-        {{ sendingPath === a.path ? '...' : `▶ ${a.name}` }}
-      </button>
-    </div>
 
     <!-- Pause / resume / interrupt live over the avatar itself — they act on
          what is on screen, and only the ones that would do something show. -->

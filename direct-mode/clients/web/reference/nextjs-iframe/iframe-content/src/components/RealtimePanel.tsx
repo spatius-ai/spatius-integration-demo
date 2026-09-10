@@ -6,14 +6,6 @@ interface Props {
   controller: AvatarController | null
   /** No session yet, so there is nowhere for a reply to go. */
   connected: boolean
-  /**
-   * Which language the conversation runs in, chosen on the config page.
-   *
-   * Not switchable here: recognition, synthesis and the persona are all fixed when
-   * the agent session is built, so changing it means a new session — which is what
-   * going back to the config page does anyway.
-   */
-  language: string
   onNotify?: (text: string, kind?: 'error' | 'warning') => void
 }
 
@@ -24,13 +16,13 @@ interface Turn {
 
 
 /**
- * The realtime scene's controls: one microphone, in place of the clip list.
+ * The conversation controls: one microphone.
  *
  * Everything conversational happens on the backend — the mic goes up as PCM, the
- * agent's speech comes back the same way, and this hands it to the same
- * `controller.send()` the pre-recorded scene uses.
+ * agent's speech comes back the same way, and this hands it to `controller.send()`.
+ * The language, the models and the voice are the server's `.env`, not this panel's.
  */
-export default function RealtimePanel({ controller, connected, language, onNotify }: Props) {
+export default function RealtimePanel({ controller, connected, onNotify }: Props) {
   const [agentReady, setAgentReady] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [micOn, setMicOn] = useState(false)
@@ -75,7 +67,7 @@ export default function RealtimePanel({ controller, connected, language, onNotif
         },
       )
       clientRef.current = client
-      await client.connect(url, language)
+      await client.connect(url)
       setAgentReady(true)
     } catch (e: any) {
       onNotify?.(e?.message ?? 'Could not reach the agent')
@@ -84,7 +76,7 @@ export default function RealtimePanel({ controller, connected, language, onNotif
     } finally {
       setConnecting(false)
     }
-  }, [connecting, language, onNotify])
+  }, [connecting, onNotify])
 
   const toggleMic = useCallback(async () => {
     if (!connected) {
@@ -92,8 +84,7 @@ export default function RealtimePanel({ controller, connected, language, onNotif
       return
     }
     // The agent is brought up on the first press rather than on mount: it costs a
-    // model session, and someone who only wants the pre-recorded scene should not
-    // pay for one by loading the page.
+    // model session, and loading the page should not start one.
     if (!clientRef.current) {
       await connectAgent()
       if (!clientRef.current) return
@@ -213,7 +204,7 @@ export default function RealtimePanel({ controller, connected, language, onNotif
       <p className="realtime-hint">
         The conversation runs on the backend — ASR, LLM and TTS — and its speech
         arrives here as PCM over a WebSocket. That audio goes to{' '}
-        <code>controller.send()</code>, exactly like the pre-recorded clips do.
+        <code>controller.send()</code>, which accepts PCM16 from any source.
       </p>
     </div>
   )

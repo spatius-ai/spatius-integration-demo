@@ -9,18 +9,12 @@ import ai.spatius.avatarkit.DrivingServiceMode
 import ai.spatius.avatarkit.LogLevel
 import ai.spatius.avatarkit.assets.AvatarManager
 import ai.spatius.avatarkit.player.AnimationPlayer.ConversationState
-import ai.spatius.avatarkit.directmodedemo.audio.PcmAsset
-import ai.spatius.avatarkit.directmodedemo.audio.loadPcmAsset
-import ai.spatius.avatarkit.directmodedemo.audio.sendPcmChunks
-import ai.spatius.avatarkit.directmodedemo.config.AppConfig
 import ai.spatius.avatarkit.directmodedemo.config.BackendClient
-import ai.spatius.avatarkit.directmodedemo.config.ConfigStore
-import ai.spatius.avatarkit.directmodedemo.config.Lang
-import ai.spatius.avatarkit.directmodedemo.config.Scene
+import ai.spatius.avatarkit.directmodedemo.data.DEFAULT_CHARACTERS
 import ai.spatius.avatarkit.directmodedemo.realtime.MicrophoneCapture
 import ai.spatius.avatarkit.directmodedemo.realtime.RealtimeClient
+import ai.spatius.avatarkit.directmodedemo.ui.BootScreen
 import ai.spatius.avatarkit.directmodedemo.ui.CharacterPicker
-import ai.spatius.avatarkit.directmodedemo.ui.ConfigurationScreen
 import ai.spatius.avatarkit.directmodedemo.ui.PlaybackState
 import ai.spatius.avatarkit.directmodedemo.ui.PlaygroundScreen
 import ai.spatius.avatarkit.directmodedemo.ui.StatusRow
@@ -44,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,23 +48,23 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Direct Mode, on Android.
  *
- * The same two steps as the Web client — configure, then drive the avatar — and the
- * same two scenes. One difference throughout: credentials are never typed here. They
- * live in the server's `.env`, and this screen only reports whether they are set.
+ * There is no configuration screen: everything the SDK needs — the App ID, the
+ * region, the avatar — comes from the server's `/api/config`, and the Session Token
+ * is minted there too. Credentials never reach this device. The server's address is
+ * the one thing this build has to know, and it is a build-time constant
+ * (`BuildConfig.DIRECT_MODE_URL`, set from `local.properties`).
  */
 class MainActivity : ComponentActivity() {
 
-    // ---- Step 1: configuration
-    private var configStep by mutableStateOf(1)
-    private var baseUrl by mutableStateOf("")
-    private var scene by mutableStateOf(Scene.Sample)
-    private var language by mutableStateOf(Lang.En)
-    private var serverConfig by mutableStateOf<BackendClient.ServerConfig?>(null)
-    private var checking by mutableStateOf(false)
-    private var statusText by mutableStateOf("")
-    private var configError by mutableStateOf("")
+    /** Where the Direct Mode server is. Compiled in; see local.properties.example. */
+    private val baseUrl = BuildConfig.DIRECT_MODE_URL
 
-    // ---- Step 2: playground
+    // ---- Boot
+    private var serverConfig by mutableStateOf<BackendClient.ServerConfig?>(null)
+    private var booting by mutableStateOf(true)
+    private var bootError by mutableStateOf("")
+
+    // ---- Playground
     private var characterId by mutableStateOf("")
     private var characterName by mutableStateOf("")
     private var showPicker by mutableStateOf(false)
@@ -86,9 +79,8 @@ class MainActivity : ComponentActivity() {
     private var fps by mutableStateOf<Int?>(null)
     private var connected by mutableStateOf(false)
     private var connecting by mutableStateOf(false)
-    private var sendingPath by mutableStateOf<String?>(null)
 
-    // ---- Realtime scene
+    // ---- Conversation
     private var micOn by mutableStateOf(false)
     private var agentConnecting by mutableStateOf(false)
     private var agentReady by mutableStateOf(false)
@@ -99,7 +91,6 @@ class MainActivity : ComponentActivity() {
 
     private var avatarView: AvatarView? = null
     private var sdkInitialized = false
-    private var sendJob: Job? = null
     private var realtime: RealtimeClient? = null
     private val mic = MicrophoneCapture()
     private val connectionReady = AtomicBoolean(false)
@@ -122,42 +113,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val saved = ConfigStore.load(applicationContext)
-        baseUrl = saved.baseUrl
-        scene = saved.scene
-        language = saved.language
-        characterId = saved.avatarId
-
-        // The server holds the one shared copy of the credentials, so read what it has
-        // on entry rather than waiting for the user to press anything.
-        checkConnection()
+        boot()
 
         setContent {
             MaterialTheme {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    if (configStep == 1) {
-                        ConfigurationScreen(
-                            baseUrl = baseUrl,
-                            scene = scene,
-                            language = language,
-                            serverConfig = serverConfig,
-                            checking = checking,
-                            statusText = statusText,
-                            errorMsg = configError,
-                            // Persisted as they change, not once a session succeeds:
-                            // the address is what makes the server reachable in the
-                            // first place, so a failed Start is exactly when it must
-                            // not be lost — otherwise every retry begins by typing an
-                            // IP address on a phone keyboard again.
-                            onBaseUrlChange = { baseUrl = it; persistChoices() },
-                            onSceneChange = { scene = it; persistChoices() },
-                            onLanguageChange = { language = it; persistChoices() },
-                            onCheckConnection = { checkConnection() },
-                            onStart = { initializeSdk() },
+                    if (serverConfig == null) {
+                        BootScreen(
+                            booting = booting,
+                            errorMsg = bootError,
+                            onRetry = { boot() },
                         )
                     } else {
                         PlaygroundScreen(
-                            scene = scene,
                             characterName = characterName,
                             loading = loading,
                             loadProgress = loadProgress,
@@ -167,7 +135,6 @@ class MainActivity : ComponentActivity() {
                             connected = connected,
                             connecting = connecting,
                             playback = playback,
-                            sendingPath = sendingPath,
                             canCreateAvatarView = sdkInitialized,
                             micOn = micOn,
                             agentConnecting = agentConnecting,
@@ -175,7 +142,6 @@ class MainActivity : ComponentActivity() {
                             transcript = transcript,
                             onPickCharacter = { showPicker = true },
                             onStart = { connect() },
-                            onSendPcm = { sendPcm(it) },
                             onInterrupt = { interrupt() },
                             onPause = { runCatching { avatarView?.controller?.pause() } },
                             onResume = { runCatching { avatarView?.controller?.resume() } },
@@ -184,8 +150,8 @@ class MainActivity : ComponentActivity() {
                             onAvatarViewCreated = { view ->
                                 if (avatarView !== view) {
                                     avatarView = view
-                                    // A character chosen before the view existed — the
-                                    // one restored from the last run — loads now.
+                                    // The avatar the server nominates loads as soon as
+                                    // there is a view to draw it into.
                                     if (characterId.isNotBlank() && !rendered && !loading) {
                                         loadAvatar(characterId, characterName)
                                     }
@@ -216,39 +182,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ---------------------------------------------------------------- step 1
-
-    private fun checkConnection() {
-        if (baseUrl.isBlank()) return
-        checking = true
-        statusText = "Checking…"
-        lifecycleScope.launch {
-            runCatching { BackendClient.fetchConfig(baseUrl) }
-                .onSuccess {
-                    serverConfig = it
-                    statusText = "Server online."
-                }
-                .onFailure {
-                    serverConfig = null
-                    statusText = it.message ?: "Cannot reach the server"
-                }
-            checking = false
-        }
-    }
+    // ---------------------------------------------------------------- boot
 
     /**
-     * Step 1 submit: mint a token, initialize the SDK, move to the playground.
+     * Fetch the server's configuration, mint a token, initialize the SDK.
      *
-     * The API key never reaches this device — the server exchanges the one in its own
-     * `.env` for a short-lived Session Token, which is what the SDK gets.
+     * The whole of the credential path: nothing is typed, and the API key never
+     * reaches this device — the server exchanges the one in its own `.env` for a
+     * short-lived Session Token, which is what the SDK gets.
      */
-    private fun initializeSdk() {
-        val config = serverConfig ?: return
-        checking = true
-        configError = ""
+    private fun boot() {
+        booting = true
+        bootError = ""
 
         lifecycleScope.launch {
             runCatching {
+                val config = BackendClient.fetchConfig(baseUrl)
                 val token = BackendClient.fetchSessionToken(baseUrl)
                 val configuration = if (config.region.isBlank() || config.region == "auto") {
                     Configuration(
@@ -267,29 +216,25 @@ class MainActivity : ComponentActivity() {
                 AvatarSDK.initialize(applicationContext, config.appId, configuration)
                 AvatarManager.initialize(applicationContext)
                 AvatarSDK.sessionToken = token
-            }.onSuccess {
+                config
+            }.onSuccess { config ->
                 sdkInitialized = true
                 if (characterId.isBlank()) {
                     // Whatever the server nominates, so the playground is never empty.
                     characterId = config.avatarId
-                    characterName = ConfigStore.characters
+                    characterName = DEFAULT_CHARACTERS
                         .firstOrNull { it.first == config.avatarId }?.second.orEmpty()
                 }
-                persistChoices()
-                configStep = 2
+                serverConfig = config
             }.onFailure {
-                configError = it.message ?: it.javaClass.simpleName
+                bootError = it.message ?: it.javaClass.simpleName
             }
-            checking = false
+            booting = false
         }
     }
 
-    /** Write the configuration screen's choices to disk, whatever happens next. */
-    private fun persistChoices() {
-        ConfigStore.save(applicationContext, AppConfig(baseUrl, characterId, scene, language))
-    }
+    // ---------------------------------------------------------------- playground
 
-    // ---------------------------------------------------------------- step 2
 
     private fun loadAvatar(id: String, name: String) {
         val view = avatarView ?: return
@@ -297,7 +242,6 @@ class MainActivity : ComponentActivity() {
 
         characterId = id
         characterName = name
-        persistChoices()
 
         lifecycleScope.launch {
             loading = true
@@ -316,13 +260,15 @@ class MainActivity : ComponentActivity() {
             connecting = false
             playback = PlaybackState.Idle
             fps = null
-            cancelSending()
             closeAgent()
             runCatching { view.controller?.close() }
 
             try {
-                check(AvatarSDK.isDeviceSupported()) {
-                    "This device does not meet AvatarKit's requirements (API 24+, Vulkan)"
+                // Advisory only. The SDK's verdict comes from a SoC list or a short CPU
+                // benchmark, and the benchmark can dip on a busy or warm device; a false
+                // here means "may be slow", not "cannot render", so warn and carry on.
+                if (!AvatarSDK.isDeviceSupported()) {
+                    showToast("This device scored below AvatarKit's recommended performance; rendering may stutter.")
                 }
                 val avatar = withContext(Dispatchers.IO) {
                     AvatarManager.load(id) { progress ->
@@ -377,9 +323,6 @@ class MainActivity : ComponentActivity() {
                     connectionReady.set(false)
                     connected = false
                     connecting = false
-                    // The chunk loop keeps feeding a controller that has gone; stop it
-                    // rather than letting it run against a dead session.
-                    cancelSending()
                     closeAgent()
                 }
             }
@@ -468,47 +411,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun sendPcm(asset: PcmAsset) {
-        // Direct Mode has no session until start() runs, so audio sent now would be
-        // dropped silently. Say so instead of leaving a dead button.
-        if (!connectionReady.get()) {
-            showToast("Please tap Start to connect before sending audio.", ToastKind.Warning)
-            return
-        }
-        if (sendingPath != null) return
-        val controller = avatarView?.controller ?: return
-
-        sendingPath = asset.path
-        sendJob = lifecycleScope.launch {
-            val data = runCatching { loadPcmAsset(applicationContext, asset.path) }
-                .getOrElse {
-                    sendingPath = null
-                    showToast("Failed to load ${asset.name}")
-                    return@launch
-                }
-            sendPcmChunks(
-                scope = lifecycleScope,
-                data = data,
-                controller = controller,
-                onDone = { sendingPath = null },
-                onError = { t ->
-                    sendingPath = null
-                    showToast("Failed to send audio: ${t.message ?: t.javaClass.simpleName}")
-                },
-            )
-        }
-    }
-
-    private fun cancelSending() {
-        sendJob?.cancel()
-        sendJob = null
-        sendingPath = null
-    }
-
     private fun interrupt() {
-        // Both halves: interrupt() drops what is buffered, but the chunk loop keeps
-        // feeding more in and playback picks straight back up.
-        cancelSending()
         runCatching { avatarView?.controller?.interrupt() }
         realtime?.interrupt()
     }
@@ -537,9 +440,8 @@ class MainActivity : ComponentActivity() {
 
     private fun startMic() {
         lifecycleScope.launch {
-            // The agent is brought up on the first press rather than on entry: it costs
-            // a model session, and someone who only wants the pre-recorded scene should
-            // not pay for one by opening the app.
+            // The agent is brought up on the first press rather than on entry: it
+            // costs a model session, and opening the app should not start one.
             if (!ensureAgent()) return@launch
             runCatching { mic.start(lifecycleScope) { chunk -> realtime?.pushMicAudio(chunk) } }
                 .onSuccess { micOn = true }
@@ -556,8 +458,8 @@ class MainActivity : ComponentActivity() {
                 // `send` suspends, and these arrive on the WebSocket's own thread, so
                 // each hop goes through the activity's scope rather than blocking it.
                 override fun onAudio(pcm: ByteArray) {
-                    // Straight to the same call the pre-recorded scene ends at. `end`
-                    // stays false: a turn is many of these, and turn_end closes it.
+                    // Straight to controller.send(). `end` stays false: a turn is
+                    // many of these, and turn_end closes it.
                     lifecycleScope.launch {
                         runCatching { avatarView?.controller?.send(pcm, false) }
                     }
@@ -581,7 +483,9 @@ class MainActivity : ComponentActivity() {
                     micOn = false
                 }
             })
-            client.connect(config.realtimeUrl, if (language == Lang.Zh) "zh" else "en")
+            // No settings travel with it: the language, the models and the voice
+            // are the server's, fixed when it builds the agent session.
+            client.connect(config.realtimeUrl)
             realtime = client
             agentReady = true
             true
@@ -623,7 +527,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        cancelSending()
         closeAgent()
         val controller = avatarView?.controller
         runCatching { controller?.onConnectionState = null }

@@ -1,14 +1,15 @@
 """Configuration shared by the token endpoint and the realtime agent.
 
-Everything the clients need lives here rather than in each client's `.env`: Direct
-Mode clients hold no credentials at all, so the App ID and avatar id have to reach
-them from somewhere, and `GET /api/config` is that somewhere.
+Everything lives in `.env` here rather than in each client: Direct Mode clients hold
+no credentials at all, so the App ID, the avatar and the region have to reach them
+from somewhere, and `GET /api/config` is that somewhere. The conversation language,
+the models and the voice never leave this file — the client has no say in them.
 """
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import sys
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -27,20 +28,31 @@ DEFAULT_AVATAR_ID = "aed008e4-8ddf-41aa-b5b2-5d7321dd4165"
 SAMPLE_RATE = 16_000
 NUM_CHANNELS = 1
 
-# Values a fresh .env.example still carries. Treated as missing rather than as
+# The values a fresh .env.example carries. Treated as missing rather than as
 # credentials, so the error says "fill this in" instead of failing against the API.
 PLACEHOLDER_VALUES = {
     "your_spatius_api_key",
     "your_spatius_app_id",
-    "your_api_key",
-    "your_app_id",
-    "replace_me",
+    "wss://your-project.livekit.cloud",
 }
 
-DOCS_LINKS = {
-    "keys": "https://app.spatius.ai/apps",
-    "auth": "https://docs.spatius.ai/api-reference/auth",
-    "livekit": "https://cloud.livekit.io",
+# Everything a conversation needs. Checked once at startup rather than per request:
+# a demo that boots and then fails at the first click is harder to place than one
+# that refuses to start and says which line of `.env` is empty.
+REQUIRED_KEYS = [
+    "SPATIUS_API_KEY",
+    "SPATIUS_APP_ID",
+    "LIVEKIT_URL",
+    "LIVEKIT_API_KEY",
+    "LIVEKIT_API_SECRET",
+]
+
+KEY_HINTS = {
+    "SPATIUS_API_KEY": "https://app.spatius.ai/apps",
+    "SPATIUS_APP_ID": "https://app.spatius.ai/apps",
+    "LIVEKIT_URL": "https://cloud.livekit.io",
+    "LIVEKIT_API_KEY": "https://cloud.livekit.io",
+    "LIVEKIT_API_SECRET": "https://cloud.livekit.io — shown only once, at creation",
 }
 
 
@@ -48,25 +60,29 @@ def env(key: str, default: str = "") -> str:
     return (os.getenv(key, default) or "").strip()
 
 
-def is_placeholder(value: str | None) -> bool:
-    if not value:
-        return False
-    return value.strip().lower() in PLACEHOLDER_VALUES
+def is_unset(value: str) -> bool:
+    """Empty, or still carrying the value `.env.example` ships with."""
+    return not value or value.lower() in PLACEHOLDER_VALUES
 
 
-def missing_keys(*keys: str) -> list[str]:
-    """Which of these are absent or still a placeholder.
+def require_env() -> None:
+    """Refuse to start against an unfilled `.env`.
 
-    One helper for both scenes: the sample-audio scene needs only the Spatius pair,
-    while the realtime scene needs LiveKit's on top, and each endpoint asks for what
-    it actually uses.
+    Every client boots by fetching `/api/config`, so a server that comes up without
+    credentials only moves the failure to a place with less context. Named keys and a
+    link each is all this can usefully say, and it is enough.
     """
-    missing: list[str] = []
-    for key in keys:
-        value = env(key)
-        if not value or is_placeholder(value):
-            missing.append(key)
-    return missing
+    missing = [key for key in REQUIRED_KEYS if is_unset(env(key))]
+    if not missing:
+        return
+
+    print("\n  Cannot start: .env is incomplete.\n", file=sys.stderr)
+    if ENV_FILE_MISSING:
+        print("  No .env found. Copy .env.example to .env first.\n", file=sys.stderr)
+    for key in missing:
+        print(f"    {key:<22} {KEY_HINTS.get(key, '')}", file=sys.stderr)
+    print("", file=sys.stderr)
+    raise SystemExit(1)
 
 
 def spatius_region() -> str:
@@ -81,17 +97,20 @@ def console_endpoint() -> str:
     ).rstrip("/")
 
 
+def app_id() -> str:
+    return env("SPATIUS_APP_ID")
+
+
 def avatar_id() -> str:
     return env("SPATIUS_AVATAR_ID") or DEFAULT_AVATAR_ID
 
 
-def sample_audio_path() -> Path:
-    """The clip the sample-audio scene plays.
+def conversation_language() -> str:
+    """The language the agent listens and replies in: `en` or `zh`.
 
-    Bundled with the server rather than fetched, so that scene needs no credentials
-    beyond the ones that mint a token — which is the point of it.
+    Server-side because it is not a per-session choice: recognition, synthesis and
+    the persona are all fixed when the agent session is built, so switching it means
+    a new session — which is a restart, not a toggle.
     """
-    configured = env("SAMPLE_AUDIO_FILE")
-    if configured:
-        return Path(configured).expanduser()
-    return Path(__file__).resolve().parent / "assets" / "sample_voice.pcm"
+    value = env("CONVERSATION_LANGUAGE", "en").lower()
+    return "zh" if value.startswith("zh") else "en"

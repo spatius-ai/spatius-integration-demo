@@ -1,9 +1,9 @@
-"""The realtime scene's voice agent.
+"""The voice agent behind the conversation.
 
 Backend Mode: this server owns the Motion Server connection, so the agent's speech
 never leaves the backend as audio-to-be-driven — it goes straight into the avatar
-session here, and the client receives the same encoded audio + motion messages the
-pre-recorded scene produces. Clients stay thin either way.
+session here, and the client receives encoded audio + motion messages. Clients stay
+thin.
 
 There is no LiveKit room in this file. `AgentSession` only builds a RoomIO when its
 audio input and output are unset; setting both up front keeps the session local, so
@@ -34,9 +34,9 @@ logger = logging.getLogger(__name__)
 # Personas, one per language. Spoken style, no Markdown — every character is read
 # aloud.
 #
-# The persona has to follow the UI language as well as recognition does: with the
-# English one in place, speaking Chinese gets an English reply, which reads as the
-# avatar ignoring you rather than as a setting being wrong.
+# The persona has to follow CONVERSATION_LANGUAGE as well as recognition does: with
+# the English one in place, speaking Chinese gets an English reply, which reads as
+# the avatar ignoring you rather than as a setting being wrong.
 DEFAULT_INSTRUCTIONS = {
     "en": (
         "You are a friendly avatar assistant in a demo. Reply in spoken English, at "
@@ -48,11 +48,6 @@ DEFAULT_INSTRUCTIONS = {
         "不要使用 Markdown 或任何符号排版，你说的每一个字都会被朗读出来。"
     ),
 }
-
-
-def speech_language(language: str) -> str:
-    """Normalise whatever the client sent to a language the models accept."""
-    return "zh" if (language or "").lower().startswith("zh") else "en"
 
 
 class WebSocketAudioInput(AudioInput):
@@ -152,10 +147,12 @@ class RealtimeAgent:
         on_turn_end: Callable[[], Awaitable[None]],
         on_interrupt: Callable[[], Awaitable[None]],
         on_transcript: Callable[[str, str], None] | None = None,
-        language: str = "en",
     ) -> None:
         self._settings = settings
-        self._language = speech_language(language)
+        # From `.env`, not from the client: recognition, the voice and the persona
+        # are all fixed when this session is built, so it is not something a client
+        # could switch anyway — and one setting on the server covers every client.
+        self._language = settings.conversation_language
         self._input = WebSocketAudioInput(settings.user_input_sample_rate)
         self._output = AvatarAudioOutput(
             settings.avatar_output_sample_rate, on_audio, on_turn_end, on_interrupt
@@ -190,9 +187,10 @@ class RealtimeAgent:
 
     async def _start(self) -> None:
         session = AgentSession(
-            # Recognition has to follow the UI language: left on the wrong one it
-            # transcribes speech into nonsense and the LLM answers the nonsense,
-            # which presents as the avatar replying to something nobody said.
+            # Recognition has to follow CONVERSATION_LANGUAGE: left on the wrong
+            # one it transcribes speech into nonsense and the LLM answers the
+            # nonsense, which presents as the avatar replying to something nobody
+            # said.
             stt=inference.STT(model=self._settings.stt_model, language=self._language),
             llm=inference.LLM(model=self._settings.llm_model),
             # Note the accent comes from the voice rather than from `language`: some

@@ -9,7 +9,7 @@ pnpm install
 pnpm dev
 ```
 
-Default URL: `http://localhost:5178`
+Default URL: `http://localhost:5188`
 
 When running through the parent wrapper, start from `../` instead:
 

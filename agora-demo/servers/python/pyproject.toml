@@ -1,0 +1,23 @@
+[project]
+name = "agora-demo-server"
+version = "0.1.0"
+description = "Agora demo server for Spatius AvatarKit: signs channel credentials and starts the ConvoAI agent"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+  "flask>=3.0.0",
+  "flask-cors>=4.0.0",
+  "python-dotenv>=1.0.0",
+  # ConvoAI is driven over REST. Its tokens are signed locally by the vendored
+  # agora_token package, so there is no Agora SDK to install.
+  "requests>=2.31",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# An application, not a library: without this setuptools tries to guess which
+# top-level directories are packages and refuses when there is more than one.
+[tool.setuptools]
+py-modules = ["server", "agora"]
+packages = ["agora_token"]

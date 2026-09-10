@@ -1,35 +1,82 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { DrivingServiceMode } from '@spatius/avatarkit'
-import Configuration from '@/views/Configuration'
+import { useState, useEffect, useCallback } from 'react'
+import { AvatarSDK, DrivingServiceMode, LogLevel } from '@spatius/avatarkit'
+import { fetchConfig, fetchSessionToken, type BackendConfig } from '@spatius-demo/direct-mode-core'
 import Playground from '@/views/Playground'
-import type { AppConfig } from '@/types'
 
-/**
- * The two-step flow, in its own component so the page can defer the whole thing
- * with `next/dynamic` — see app/page.tsx for why the SDK cannot be imported into
- * the server pass.
- */
 const MODE = DrivingServiceMode.direct
 
+/**
+ * Boot, then hand over to the playground.
+ *
+ * In its own component so the page can defer the whole thing with `next/dynamic` —
+ * see app/page.tsx for why the SDK cannot be imported into the server pass.
+ *
+ * There is no configuration screen: everything the SDK needs — the App ID, the
+ * region, the avatar — comes from the server's `/api/config`, and the Session Token
+ * is minted there too. This is the whole of the credential path in a Direct Mode
+ * app, and it is four lines.
+ */
 export default function AvatarApp() {
-  const [step, setStep] = useState<1 | 2>(1)
-  const [config, setConfig] = useState<AppConfig | null>(null)
+  const [config, setConfig] = useState<BackendConfig | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
-  const handleInitialized = useCallback((c: AppConfig) => {
-    setConfig(c)
-    setStep(2)
-  }, [])
+  useEffect(() => {
+    let cancelled = false
+    setError(null)
+    ;(async () => {
+      try {
+        const backend = await fetchConfig()
+        const session = await fetchSessionToken()
+        await AvatarSDK.initialize(backend.appId, {
+          // Omitting region entirely is what triggers the SDK's automatic pick.
+          ...(backend.region ? { region: backend.region } : {}),
+          drivingServiceMode: MODE,
+          audioFormat: { channelCount: 1, sampleRate: backend.sampleRate },
+          logLevel: LogLevel.all,
+        })
+        AvatarSDK.setSessionToken(session.sessionToken)
+        if (!cancelled) setConfig(backend)
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? 'Could not reach the Direct Mode server')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [attempt])
+
+  const retry = useCallback(() => setAttempt(n => n + 1), [])
+
+  if (error) {
+    return (
+      <div className="app boot">
+        <div className="boot-error">
+          <h1>Cannot start</h1>
+          <p>{error}</p>
+          <p className="boot-hint">
+            Check that the Direct Mode server is running and that its <code>.env</code>{' '}
+            is filled in.
+          </p>
+          <button className="primary" onClick={retry}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!config) {
+    return (
+      <div className="app boot">
+        <div className="boot-status">Connecting to the Direct Mode server…</div>
+      </div>
+    )
+  }
 
   return (
     <div className="app">
-      <div className={`view ${step === 1 ? 'active' : ''}`}>
-        <Configuration mode={MODE} onInitialized={handleInitialized} />
-      </div>
-      <div className={`view ${step === 2 ? 'active' : ''}`}>
-        {config && step === 2 && <Playground mode={MODE} config={config} />}
-      </div>
+      <Playground config={config} />
     </div>
   )
 }

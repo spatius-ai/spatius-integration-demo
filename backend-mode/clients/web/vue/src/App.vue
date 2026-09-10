@@ -1,56 +1,64 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { DrivingServiceMode } from '@spatius/avatarkit'
-import Configuration from './views/Configuration.vue'
+import { ref, onMounted } from 'vue'
+import { AvatarSDK, DrivingServiceMode, LogLevel } from '@spatius/avatarkit'
+import { fetchConfig, type BackendConfig } from './utils/backendClient'
 import Playground from './views/Playground.vue'
 import './App.css'
 
 /**
- * Which scene the playground opens in. Both are driven server-side and reach this
- * client as the same audio + motion messages — they differ only in where the audio
- * came from.
+ * The whole boot path.
+ *
+ * There is nothing to ask the user: in Backend Mode the server holds the Motion
+ * Server connection and every credential with it, so this client reads what it needs
+ * to render — app id, region, sample rates, the avatar to open with — from
+ * `/api/config` and initializes the SDK with it. No session token is involved; this
+ * SDK instance only renders what arrives over the WebSocket.
  */
-export type Scene = 'sample' | 'realtime'
+const MODE = DrivingServiceMode.backend
 
-/** Which language the realtime conversation runs in. */
-export type Lang = 'en' | 'zh'
+const config = ref<BackendConfig | null>(null)
+const error = ref<string | null>(null)
 
-export interface AppConfig {
-  appId: string
-  region: string
-  scene: Scene
-  /**
-   * Recognition, synthesis and the agent's persona all follow this, and all three
-   * are fixed when the agent session is built — which is why it is chosen here
-   * rather than switched inside the scene.
-   */
-  language: Lang
-  /** Only the realtime scene reaches an agent, so this is absent for the other. */
-  livekit?: {
-    url: string
-    apiKey: string
-    apiSecret: string
+async function boot() {
+  error.value = null
+  try {
+    const c = await fetchConfig()
+    await AvatarSDK.initialize(c.appId, {
+      region: c.region,
+      drivingServiceMode: MODE,
+      audioFormat: { channelCount: 1, sampleRate: c.inputSampleRate },
+      logLevel: LogLevel.all,
+    })
+    config.value = c
+  } catch (e: any) {
+    error.value = e?.message ?? 'Could not start'
   }
 }
 
-const MODE = DrivingServiceMode.backend
-
-const step = ref<1 | 2>(1)
-const config = ref<AppConfig | null>(null)
-
-function handleInitialized(c: AppConfig) {
-  config.value = c
-  step.value = 2
-}
+onMounted(boot)
 </script>
 
 <template>
-  <div class="app">
-    <div :class="['view', { active: step === 1 }]">
-      <Configuration :mode="MODE" @initialized="handleInitialized" />
+  <div class="app boot-state" v-if="error">
+    <div class="boot-box">
+      <h1>Cannot reach the Backend Mode server</h1>
+      <p class="boot-error">{{ error }}</p>
+      <p class="boot-hint">
+        Start it with <code>cd servers/python &amp;&amp; uv run python -m app.main</code>.
+        It reads every credential from its own <code>.env</code> and reports any that
+        is missing.
+      </p>
+      <button class="primary" @click="boot">Retry</button>
     </div>
-    <div :class="['view', { active: step === 2 }]">
-      <Playground v-if="config && step === 2" :mode="MODE" :config="config" />
+  </div>
+
+  <div class="app boot-state" v-else-if="!config">
+    <div class="boot-box">
+      <p class="boot-hint">Starting…</p>
     </div>
+  </div>
+
+  <div class="app" v-else>
+    <Playground :config="config" />
   </div>
 </template>

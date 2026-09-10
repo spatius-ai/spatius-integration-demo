@@ -12,24 +12,16 @@ const props = defineProps<{
   controller: AvatarController | null
   /** No session yet, so there is nowhere for a reply to go. */
   connected: boolean
-  /**
-   * Which language the conversation runs in, chosen on the config page.
-   *
-   * Not switchable here: recognition, synthesis and the persona are all fixed when
-   * the agent session is built, so changing it means a new session — which is what
-   * going back to the config page does anyway.
-   */
-  language: string
 }>()
 
 const emit = defineEmits<{ notify: [text: string, kind?: 'error' | 'warning'] }>()
 
 /**
- * The realtime scene's controls: one microphone, in place of the clip list.
+ * The conversation controls: one microphone.
  *
  * Everything conversational happens on the backend — the mic goes up as PCM, the
- * agent's speech comes back the same way, and this hands it to the same
- * `controller.send()` the pre-recorded scene uses.
+ * agent's speech comes back the same way, and this hands it to `controller.send()`.
+ * The language, the models and the voice are the server's `.env`, not this panel's.
  */
 const agentReady = ref(false)
 const connecting = ref(false)
@@ -74,7 +66,7 @@ async function connectAgent() {
       },
     )
     client = next
-    await next.connect(url, props.language)
+    await next.connect(url)
     agentReady.value = true
   } catch (e: any) {
     emit('notify', e?.message ?? 'Could not reach the agent')
@@ -91,8 +83,7 @@ async function toggleMic() {
     return
   }
   // The agent is brought up on the first press rather than on mount: it costs a
-  // model session, and someone who only wants the pre-recorded scene should not
-  // pay for one by loading the page.
+  // model session, and loading the page should not start one.
   if (!client) {
     await connectAgent()
     if (!client) return
@@ -202,7 +193,7 @@ const micState = computed(() =>
     <p class="realtime-hint">
       The conversation runs on the backend — ASR, LLM and TTS — and its speech
       arrives here as PCM over a WebSocket. That audio goes to
-      <code>controller.send()</code>, exactly like the pre-recorded clips do.
+      <code>controller.send()</code>, which accepts PCM16 from any source.
     </p>
   </div>
 </template>

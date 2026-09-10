@@ -3,21 +3,20 @@ import 'package:spatius_avatarkit/spatius_avatarkit.dart' hide ConnectionState, 
 
 import 'avatar_view_model.dart';
 import 'characters.dart';
-import 'configuration_page.dart';
 
+/// The whole app, once the server has been reached.
+///
+/// It takes only what a session genuinely needs: where the agent socket lives, and
+/// which avatar to open on. The language, the models, the voice and every credential
+/// are the server's `.env`.
 class PlaygroundPage extends StatefulWidget {
   const PlaygroundPage({
     super.key,
-    required this.scene,
-    required this.language,
     required this.realtimeUrl,
     required this.configuredAvatarId,
   });
 
-  final Scene scene;
-  final Lang language;
-
-  /// Where the realtime scene's agent socket lives, as the server reported it.
+  /// Where the agent socket lives, as the server reported it.
   final String realtimeUrl;
 
   /// Whatever the server nominates, so the playground is never empty on arrival.
@@ -43,7 +42,6 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
   void initState() {
     super.initState();
     _vm.realtimeUrl = widget.realtimeUrl;
-    _vm.language = widget.language == Lang.zh ? 'zh' : 'en';
     // Whatever the server nominates, loaded on arrival — the same as the iOS and
     // Android clients, so the playground is never empty to begin with.
     if (widget.configuredAvatarId.isNotEmpty) {
@@ -57,22 +55,6 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
 
   void _onVmChanged() {
     if (mounted) setState(() {});
-  }
-
-  void _showAudioHint() {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sending audio'),
-        content: const Text(audioSourceHint),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Got it'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showToast(ToastMessage message) {
@@ -124,33 +106,16 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
           // character is loaded, and the status below reports whether it worked.
           if (_vm.avatar != null) _buildStartButton(),
           const Divider(height: 1),
-          // The two scenes differ only in where the audio comes from: a bundled clip,
-          // or this device's microphone with an agent answering. Both end at
-          // controller.yieldAudioData().
-          // What drives the avatar, and the only thing that differs between the two
-          // scenes. The realtime panel is one control and a transcript that grows, so
-          // it scrolls with the status bar above it; the clips are what gets tapped
-          // and the status is what gets read while the avatar answers, so those two
-          // sit side by side and neither may push the other off screen.
+          // What drives the avatar: this device's microphone, with an agent
+          // answering in PCM that ends at controller.send(). One control and a
+          // transcript that grows, so it scrolls with the status bar above it.
           Expanded(
-            child: widget.scene == Scene.realtime
-                ? SingleChildScrollView(
-                    child: Column(children: [
-                      _buildStatusBar(),
-                      _buildRealtimePanel(),
-                    ]),
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(child: _buildStatusBar()),
-                      ),
-                      Expanded(
-                        child: SingleChildScrollView(child: _buildAudioFileSection()),
-                      ),
-                    ],
-                  ),
+            child: SingleChildScrollView(
+              child: Column(children: [
+                _buildStatusBar(),
+                _buildRealtimePanel(),
+              ]),
+            ),
           ),
         ],
       ),
@@ -330,65 +295,6 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
     );
   }
 
-  Widget _buildAudioFileSection() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                const Text(
-                  'Audio Files',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                const SizedBox(width: 4),
-                InkWell(
-                  onTap: _showAudioHint,
-                  child: const Icon(Icons.help_outline,
-                      size: 14, color: Colors.grey),
-                ),
-                const Spacer(),
-                if (_vm.isSendingAudio)
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          ..._vm.audioFiles.map((file) => InkWell(
-                onTap: _vm.isSendingAudio ? null : () => _vm.sendAudioFile(file),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.graphic_eq, size: 14, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          file,
-                          style: const TextStyle(fontSize: 11),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (_vm.currentlyPlayingFile == file)
-                        const Icon(Icons.volume_up,
-                            size: 14, color: Colors.blue),
-                    ],
-                  ),
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
   // --- Character section ---
 
   void _showCharacters() {
@@ -407,7 +313,7 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
     );
   }
 
-  /// The realtime scene: one microphone, a way to type instead, and what was said.
+  /// What drives the avatar: one microphone, a way to type instead, and what was said.
   Widget _buildRealtimePanel() {
     final theme = Theme.of(context);
     return Padding(

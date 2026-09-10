@@ -147,7 +147,7 @@ echo "=========================================="
 echo ""
 echo "  Backend API:  http://localhost:${BACKEND_PORT}"
 if [ -n "$FRONTEND_PID" ]; then
-    echo "  Web client:   http://localhost:5173"
+    echo "  Web client:   http://localhost:5180"
 fi
 echo ""
 echo "  Mobile (same network):"

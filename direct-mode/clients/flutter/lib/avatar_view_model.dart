@@ -2,25 +2,10 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:record/record.dart';
 import 'package:spatius_avatarkit/spatius_avatarkit.dart' as ak;
 
 import 'realtime_client.dart';
-
-/// Shown next to the clip list so nobody reads the bundled files as the limit of
-/// what Direct Mode accepts.
-const audioSourceHint =
-    'These clips are bundled samples, not a limitation. send() takes any PCM16 audio '
-    'at the configured sample rate — stream it live from a microphone, a TTS service, '
-    'or your own pipeline the same way. The demo ships files so it runs without extra setup.';
-
-const _audioFiles = [
-  'demo_pcm_audio1.pcm',
-  'demo_pcm_audio2.pcm',
-  'demo_pcm_audio3.pcm',
-  'speech.pcm',
-];
 
 enum ToastKind { error, warning }
 
@@ -39,16 +24,12 @@ class AvatarViewModel extends ChangeNotifier {
   /// onFrameRateInfo — null until the monitor has reported once.
   int? fps;
   ak.Avatar? avatar;
-  bool isSendingAudio = false;
-  String? currentlyPlayingFile;
 
   /// Set by the page so failures and blocked actions surface in the UI
   /// instead of only reaching [errorMessage].
   void Function(ToastMessage)? onToast;
 
-  List<String> get audioFiles => _audioFiles;
-
-  // --- Realtime scene ---
+  // --- Conversation ---
   /// Whether the agent socket is being opened, and whether it is ready to be spoken
   /// to. Audio pushed before ready is dropped, which presents as a microphone that
   /// records and is never answered.
@@ -59,15 +40,13 @@ class AvatarViewModel extends ChangeNotifier {
   /// What has been said so far, as (role, text).
   List<(String, String)> transcript = [];
 
-  /// Where the agent socket lives and which language it runs in; both come from the
-  /// configuration screen.
+  /// Where the agent socket lives, as the server reported it. The language, the
+  /// models and the voice are the server's `.env` — all three are fixed when it
+  /// builds the agent session, so none of them is a client setting.
   String realtimeUrl = '';
-  String language = 'en';
 
   // --- Private ---
   ak.AvatarController? _controller;
-  bool _isConnected = false;
-  Completer<void>? _sendCanceller;
 
   RealtimeClient? _realtime;
 
@@ -91,11 +70,6 @@ class AvatarViewModel extends ChangeNotifier {
 
     controller.onConnectionState = (state, errorMsg) {
       connectionState = state.name;
-      _isConnected = state == ak.ConnectionState.connected;
-      if (state == ak.ConnectionState.disconnected ||
-          state == ak.ConnectionState.failed) {
-        _cancelSending();
-      }
       notifyListeners();
     };
 
@@ -120,29 +94,28 @@ class AvatarViewModel extends ChangeNotifier {
   void resume() => _controller?.resume();
 
   void interrupt() {
-    _cancelSending();
     _controller?.interrupt();
   }
 
-  // --- Realtime scene ---
+  // --- Conversation ---
 
   /// Open the agent socket, once per session.
   ///
-  /// Only the realtime scene calls this: an agent costs a model session, and a
-  /// pre-recorded clip needs none.
+  /// Opening the microphone is what brings it up: an agent costs a model session,
+  /// so it is not started before there is something to say to it.
   Future<void> _ensureAgent() async {
     if (agentReady || agentConnecting || realtimeUrl.isEmpty) return;
     agentConnecting = true;
     notifyListeners();
 
     final client = RealtimeClient(
-      // Direct Mode drives from here: what the agent returns is plain PCM, fed to the
-      // controller exactly as a bundled clip would be.
+      // Direct Mode drives from here: what the agent returns is plain PCM, fed to
+      // the controller exactly as any other PCM16 source would be.
       onAudio: (pcm) async {
         // send(), not yieldAudioData(): that one is Backend Mode's, for audio the
         // server has already driven. Direct Mode drives from here, so the agent's
-        // reply goes through the same call the pre-recorded clips end at — `end`
-        // stays false, since a turn is many of these and turn_end closes it.
+        // reply goes through send() like any other PCM16 source — `end` stays
+        // false, since a turn is many of these and turn_end closes it.
         // Not awaited, and not chained behind the previous chunk: Dart runs this
         // isolate's callbacks one at a time, so the calls reach the platform channel
         // in the order they were made. Waiting for each `send` to return before
@@ -178,7 +151,9 @@ class AvatarViewModel extends ChangeNotifier {
     );
 
     try {
-      await client.connect(realtimeUrl, language: language);
+      // No settings travel with it: the language, the models and the voice are the
+      // server's, fixed when it builds the agent session.
+      await client.connect(realtimeUrl);
       _realtime = client;
       agentReady = true;
     } catch (e) {
@@ -236,7 +211,7 @@ class AvatarViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Have the agent speak a typed line — a way to try the scene without a microphone.
+  /// Have the agent speak a typed line — a way to try it without a microphone.
   Future<void> sendText(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -245,79 +220,7 @@ class AvatarViewModel extends ChangeNotifier {
   }
 
   void close() {
-    _cancelSending();
     _controller?.close();
-  }
-
-  // --- Audio file sending ---
-
-  /// Streams a bundled clip to the avatar.
-  ///
-  /// The chunking is what matters, not the file: [ak.AvatarController.send] accepts
-  /// any PCM16 at the configured sample rate, so a microphone or TTS stream feeds it
-  /// the same way — hand it bytes as they arrive and mark the final chunk with `end`.
-  Future<void> sendAudioFile(String filename) async {
-    // Direct Mode has no session until start() runs, so audio sent now would
-    // be dropped silently. Say so instead of leaving a dead button.
-    if (!_isConnected) {
-      onToast?.call(const ToastMessage(
-        'Please tap Start to connect before sending audio.',
-        kind: ToastKind.warning,
-      ));
-      return;
-    }
-
-    final controller = _controller;
-    if (controller == null) return;
-
-    _cancelSending();
-    controller.interrupt();
-
-    Uint8List audioData;
-    try {
-      final byteData = await rootBundle.load('assets/$filename');
-      audioData = byteData.buffer.asUint8List();
-    } catch (e) {
-      errorMessage = 'Cannot read $filename';
-      onToast?.call(ToastMessage('Cannot read $filename'));
-      notifyListeners();
-      return;
-    }
-
-    isSendingAudio = true;
-    currentlyPlayingFile = filename;
-    notifyListeners();
-
-    final canceller = Completer<void>();
-    _sendCanceller = canceller;
-
-    // 1 second of 16kHz 16-bit mono = 32000 bytes
-    const chunkSize = 32000;
-    var offset = 0;
-
-    while (offset < audioData.length && !canceller.isCompleted && _isConnected) {
-      final end = (offset + chunkSize).clamp(0, audioData.length);
-      final isLast = end >= audioData.length;
-      final chunk = audioData.sublist(offset, end);
-      controller.send(chunk, end: isLast);
-      offset = end;
-      if (!isLast) {
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-    }
-
-    if (!canceller.isCompleted) {
-      isSendingAudio = false;
-      currentlyPlayingFile = null;
-      notifyListeners();
-    }
-  }
-
-  void _cancelSending() {
-    _sendCanceller?.complete();
-    _sendCanceller = null;
-    isSendingAudio = false;
-    currentlyPlayingFile = null;
   }
 
   Future<void> closeRealtime() async {

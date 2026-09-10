@@ -2,9 +2,8 @@ import { ConversationState } from '@spatius/avatarkit'
 import { AvatarManagerService, type AvatarInstance } from '../avatarManager'
 import { DEFAULT_CHARACTERS } from '../data/characters'
 import { pushToast } from '../utils/toast'
-import { BackendClient, fetchConfig } from '../utils/backendClient'
+import { BackendClient, type BackendConfig } from '../utils/backendClient'
 import { MicrophonePcmCapture } from '../utils/audioCapture'
-import type { AppConfig } from './configuration'
 
 const DASH_URL = 'https://app.spatius.ai'
 const MAX_AVATARS = 4
@@ -73,16 +72,16 @@ const STATUS_ROWS: {
   },
 ]
 
-export function createPlayground(config: AppConfig): HTMLElement {
+/** `config` is what the server reported at boot; its avatar id opens the stage. */
+export function createPlayground(config: BackendConfig): HTMLElement {
   const manager = new AvatarManagerService()
 
   let multiMode = false
   let loadingCharId: string | null = null
-  let playingClip: string | null = null
   let customChars: { id: string; name: string }[] = []
   let adding = false
 
-  // Realtime scene state.
+  // Conversation state.
   let client: BackendClient | null = null
   let connected = false
   let agentReady = false
@@ -100,9 +99,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
   let speaking = false
   let mic: MicrophonePcmCapture | null = null
   const transcript: { role: 'user' | 'assistant'; text: string }[] = []
-  /** The clips the server offers, and the note explaining where they live. */
-  let clips: { name: string; clip: string }[] = []
-  let clipsHint = ''
 
   const root = document.createElement('div')
   root.className = 'playground'
@@ -202,21 +198,7 @@ export function createPlayground(config: AppConfig): HTMLElement {
   panelHint.className = 'panel-hint'
   panelHint.textContent = 'Load a character first'
 
-  /** One node per server-side clip, created the first time the list arrives. */
-  const clipButtons = new Map<string, HTMLButtonElement>()
-  const clipList = document.createElement('div')
-  clipList.className = 'audio-list'
-  const clipsTitle = document.createElement('h4')
-  clipList.appendChild(clipsTitle)
-
-  const clipsNote = document.createElement('p')
-  clipsNote.className = 'realtime-hint'
-  clipsNote.textContent =
-    'The clips live on the server and never pass through this page: one is ' +
-    'streamed straight into the avatar, and what arrives here is the encoded ' +
-    'audio and motion to render.'
-
-  // The realtime panel, built once. Its microphone and Say button are the two
+  // The panel that drives the avatar, built once. Its microphone and Say button are the two
   // controls a user presses repeatedly while the panel is re-rendering underneath
   // them, so neither may be replaced.
   const realtimePanel = document.createElement('div')
@@ -552,7 +534,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
       onError: (message) => pushToast(message),
       onClosed: () => {
         connected = false
-        playingClip = null
         client = null
         renderPanel()
       },
@@ -581,8 +562,8 @@ export function createPlayground(config: AppConfig): HTMLElement {
   /**
    * The audio context has to be created inside a user gesture — a browser will not
    * allow it otherwise, and the avatar then renders in silence with nothing
-   * reported. So it is done on the first press of whatever the scene's button is,
-   * rather than needing a button of its own.
+   * reported. So it is done on the first press of the microphone, rather than
+   * needing a button of its own.
    */
   async function ensureAudioContext() {
     await manager.activeController?.initializeAudioContext()
@@ -596,15 +577,15 @@ export function createPlayground(config: AppConfig): HTMLElement {
     if (agentReady) return true
 
     // Brought up on the first press rather than on mount: it costs a model session,
-    // and someone who only wants the pre-recorded scene should not pay for one by
-    // loading the page.
+    // and someone who only opened the page to look at the avatar should not pay
+    // for one.
     agentStarting = true
     renderPanel()
     try {
       await ensureAudioContext()
       // Awaited rather than fired off: microphone audio pushed before the agent
       // exists is dropped, which presents as a mic that records nothing.
-      await client.startAgent(config.language)
+      await client.startAgent()
       agentReady = true
       return true
     } catch (e: any) {
@@ -646,16 +627,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
     renderPanel()
   }
 
-  async function playSample(clip: string) {
-    if (!client) return
-    await ensureAudioContext()
-    playingClip = clip
-    renderPanel()
-    client.playSample(clip)
-    // The server streams the clip and reports nothing when it finishes, so this is
-    // released on the next conversation state change rather than by a reply.
-  }
-
   // ---------------------------------------------------------------- panel
 
   function renderPanel() {
@@ -666,9 +637,9 @@ export function createPlayground(config: AppConfig): HTMLElement {
     const hasAvatar = !!avatar?.view && !avatar.loading
 
     // The panel is assembled once and then only updated. Clearing it here would
-    // detach the clip buttons on every render — and this runs on every SDK
+    // detach the microphone on every render — and this runs on every SDK
     // callback, the frame-rate monitor included. Detaching a button between
-    // mousedown and mouseup cancels the click, so pressing one did nothing at
+    // mousedown and mouseup cancels the click, so pressing it did nothing at
     // all: the press registered, the release landed on a re-attached node, and
     // no click event was ever produced.
     if (!panel.firstChild) {
@@ -679,14 +650,12 @@ export function createPlayground(config: AppConfig): HTMLElement {
       panel.appendChild(slotSelector)
       panel.appendChild(panelHint)
       panel.appendChild(realtimePanel)
-      panel.appendChild(clipList)
     }
 
     statusBar.hidden = !avatar
     slotSelector.hidden = !(multiMode && manager.avatars.length > 0)
     panelHint.hidden = hasAvatar
-    realtimePanel.hidden = !hasAvatar || config.scene !== 'realtime'
-    clipList.hidden = !hasAvatar || config.scene === 'realtime'
+    realtimePanel.hidden = !hasAvatar
 
     // The status rows hold no controls, so rewriting them wholesale is harmless.
     if (avatar) {
@@ -730,53 +699,31 @@ export function createPlayground(config: AppConfig): HTMLElement {
 
     if (!hasAvatar) return
 
-    // What drives the avatar, and the only thing that differs between the two
-    // scenes. Both are driven server-side and arrive here as the same audio +
-    // motion messages.
-    if (config.scene === 'realtime') {
-      // Only the parts that actually change are written; the microphone, the text
-      // field and the Say button are the same nodes every render.
-      speakingDot.hidden = !speaking
-      micBtn.className = `mic-btn ${micOn ? 'on' : ''} ${connected && !micUsed ? 'needs-pick' : ''}`
-      micBtn.title = micOn ? 'Stop the microphone' : 'Start talking'
-      micBtn.disabled = !connected || agentStarting
-      micState.textContent = !connected
-        ? 'Connecting to the server…'
-        : agentStarting
-          ? 'Starting the agent…'
-          : micOn
-            ? 'Listening — just talk, the agent decides when your turn ends.'
-            : agentReady
-              ? 'Microphone off.'
-              : 'Tap to start talking.'
-      sayField.disabled = !connected
-      sayBtn.disabled = !sayField.value.trim() || !connected
+    // What drives the avatar. The conversation runs server-side and arrives here
+    // as encoded audio + motion messages.
+    //
+    // Only the parts that actually change are written; the microphone, the text
+    // field and the Say button are the same nodes every render.
+    speakingDot.hidden = !speaking
+    micBtn.className = `mic-btn ${micOn ? 'on' : ''} ${connected && !micUsed ? 'needs-pick' : ''}`
+    micBtn.title = micOn ? 'Stop the microphone' : 'Start talking'
+    micBtn.disabled = !connected || agentStarting
+    micState.textContent = !connected
+      ? 'Connecting to the server…'
+      : agentStarting
+        ? 'Starting the agent…'
+        : micOn
+          ? 'Listening — just talk, the agent decides when your turn ends.'
+          : agentReady
+            ? 'Microphone off.'
+            : 'Tap to start talking.'
+    sayField.disabled = !connected
+    sayBtn.disabled = !sayField.value.trim() || !connected
 
-      transcriptBox.hidden = transcript.length === 0
-      transcriptBox.innerHTML = transcript
-        .map(t => `<p class="${t.role}"><strong>${t.role === 'user' ? 'You' : 'Avatar'}</strong>${t.text}</p>`)
-        .join('')
-
-      return
-    }
-
-    clipsTitle.innerHTML = `Pre-recorded audio${clipsHint ? `<span class="audio-hint" title="${clipsHint}">?</span>` : ''}`
-    for (const c of clips) {
-      let btn = clipButtons.get(c.clip)
-      if (!btn) {
-        btn = document.createElement('button')
-        btn.className = 'secondary full-width audio-btn'
-        btn.addEventListener('click', () => void playSample(c.clip))
-        clipButtons.set(c.clip, btn)
-        clipList.appendChild(btn)
-      }
-      btn.disabled = !connected || playingClip !== null
-      btn.textContent = playingClip === c.clip ? '...' : `▶ ${c.name}`
-    }
-    // Kept last, but only moved when new buttons have been added above it:
-    // re-appending an attached node detaches and re-inserts it, and doing that
-    // every render would cancel any click in progress on the list.
-    if (clipList.lastChild !== clipsNote) clipList.appendChild(clipsNote)
+    transcriptBox.hidden = transcript.length === 0
+    transcriptBox.innerHTML = transcript
+      .map(t => `<p class="${t.role}"><strong>${t.role === 'user' ? 'You' : 'Avatar'}</strong>${t.text}</p>`)
+      .join('')
   }
 
   // ---------------------------------------------------------------- wiring
@@ -794,9 +741,6 @@ export function createPlayground(config: AppConfig): HTMLElement {
     renderPanel()
   }
 
-  // The avatar going back to idle is what says the clip has finished playing.
-  let idleTimer: number | null = null
-
   manager.onChange(() => {
     // The controller changes when a different character is selected, and the
     // client outlives that — so it is handed the current one rather than closing
@@ -807,30 +751,21 @@ export function createPlayground(config: AppConfig): HTMLElement {
       client?.setAvatar(manager.activeAvatar.characterId)
     }
 
-    if (playingClip !== null && manager.activeAvatar?.conversationState === 'idle') {
-      if (idleTimer !== null) window.clearTimeout(idleTimer)
-      idleTimer = window.setTimeout(() => {
-        playingClip = null
-        idleTimer = null
-        renderPanel()
-      }, 500)
-    }
-
     renderAll()
   })
 
-  // The clips live on the server, so the list comes from there rather than being
-  // repeated here — dropping a .pcm file into its assets directory is enough.
-  fetchConfig()
-    .then((serverConfig) => {
-      clips = serverConfig.clips ?? []
-      clipsHint = serverConfig.clipsHint ?? ''
-      renderPanel()
-    })
-    .catch(() => {
-      // Not worth reporting: the connection itself surfaces a server that is down.
-    })
-
   renderAll()
+
+  /**
+   * Open on the avatar the server nominated, so the stage is never empty on arrival.
+   *
+   * The list stays the way to switch character; this only decides what is already
+   * there when the page appears.
+   */
+  if (config.avatarId) {
+    const known = DEFAULT_CHARACTERS.find(c => c.id === config.avatarId)
+    void selectCharacter(config.avatarId, known?.name ?? 'Avatar')
+  }
+
   return root
 }

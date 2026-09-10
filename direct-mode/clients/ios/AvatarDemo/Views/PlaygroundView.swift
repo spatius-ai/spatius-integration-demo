@@ -13,15 +13,12 @@ private struct StatusRow: Identifiable {
 /// The playground, laid out for a phone.
 ///
 /// Same parts as the Web client and in the same order, folded into one column: the
-/// avatar with its playback controls, then Start, then the status bar, then whatever
-/// drives the avatar for this scene. What the Web version puts in a left-hand list —
-/// the characters — is a sheet here, opened from the toolbar; a phone has no room for
-/// a permanent sidebar, and the avatar is what the screen is for.
+/// avatar with its playback controls, then Start, then the status bar, then the
+/// microphone. What the Web version puts in a left-hand list — the characters — is a
+/// sheet here, opened from the toolbar; a phone has no room for a permanent sidebar,
+/// and the avatar is what the screen is for.
 struct PlaygroundView: View {
     let serverConfig: BackendClient.ServerConfig
-    let scene: DemoScene
-    let language: Lang
-    let sessionToken: String
 
     @StateObject private var viewModel = AvatarViewModel()
     @State private var selectedCharacterId: String = ""
@@ -30,7 +27,6 @@ struct PlaygroundView: View {
     @State private var isLoadingAvatar = false
     @State private var loadError: String?
     @State private var loadProgress: Double = 0
-    @State private var showAudioHint = false
     @State private var showCharacters = false
     @State private var helpRow: StatusRow?
     @State private var typed = ""
@@ -38,10 +34,8 @@ struct PlaygroundView: View {
     private var isConnected: Bool { viewModel.isConnected }
 
     var body: some View {
-        // The page itself does not scroll. Everything the pre-recorded scene needs is
-        // on screen at once — tapping a clip and watching the avatar answer are the
-        // two halves of one action, and putting the list below the fold meant
-        // scrolling down to start playback and back up to see it.
+        // The page itself does not scroll: the avatar is what the screen is for, and
+        // the panel below it scrolls on its own.
         VStack(spacing: 12) {
             avatarStage
 
@@ -67,30 +61,17 @@ struct PlaygroundView: View {
                 .padding(.horizontal, 16)
             }
 
-            // What drives the avatar, and the only thing that differs between the
-            // two scenes: a list of clips to send, or a microphone whose replies
-            // come back from the agent. Both end at controller.send().
+            // What drives the avatar: a microphone whose replies come back from the
+            // agent as PCM, handed straight to controller.send().
+            //
+            // One control and a transcript that grows, so it scrolls on its own with
+            // the status bar above it.
             if viewModel.avatar != nil {
-                if scene == .realtime {
-                    // The realtime panel is one control and a transcript that grows,
-                    // so it scrolls on its own with the status bar above it.
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            statusBar
-                            realtimePanel
-                        }
+                ScrollView {
+                    VStack(spacing: 12) {
+                        statusBar
+                        realtimePanel
                     }
-                } else {
-                    // Side by side, each scrolling within its own column: the clips
-                    // are what gets tapped and the status is what gets read while the
-                    // avatar answers, so neither may push the other off screen.
-                    HStack(alignment: .top, spacing: 10) {
-                        ScrollView { statusBar }
-                            .frame(maxWidth: .infinity)
-                        ScrollView { audioFileSection }
-                            .frame(maxWidth: .infinity)
-                    }
-                    .padding(.horizontal, 12)
                 }
             }
 
@@ -114,11 +95,6 @@ struct PlaygroundView: View {
             characterSheet
         }
         .toast($viewModel.toast)
-        .alert("Sending audio", isPresented: $showAudioHint) {
-            Button("Got it", role: .cancel) {}
-        } message: {
-            Text(audioSourceHint)
-        }
         .alert(item: $helpRow) { row in
             Alert(
                 title: Text(row.label),
@@ -127,10 +103,7 @@ struct PlaygroundView: View {
             )
         }
         .task {
-            viewModel.configureRealtime(
-                url: serverConfig.realtimeURL,
-                language: language.rawValue
-            )
+            viewModel.configureRealtime(url: serverConfig.realtimeURL)
             // Whatever the server nominates, so the playground is never empty.
             if selectedCharacterId.isEmpty {
                 let fallback = defaultCharacters.first { $0.id == serverConfig.avatarID }
@@ -290,49 +263,7 @@ struct PlaygroundView: View {
         .cornerRadius(10)
     }
 
-    // MARK: - Pre-recorded scene
-
-    private var audioFileSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text("Audio Files").font(.subheadline).fontWeight(.semibold)
-                Button { showAudioHint = true } label: {
-                    Image(systemName: "questionmark.circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                Spacer()
-            }
-
-            ForEach(viewModel.audioFiles, id: \.self) { file in
-                Button {
-                    viewModel.sendAudioFile(file)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "waveform").font(.caption)
-                        Text(viewModel.currentlyPlayingFile == file ? "..." : file)
-                            .font(.caption)
-                            .lineLimit(1)
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray.opacity(0.35), lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-                // Stays tappable while disconnected so the guard can explain why
-                // nothing would play, rather than the row going dead.
-                .disabled(viewModel.isSendingAudio)
-            }
-        }
-    }
-
-    // MARK: - Realtime scene
+    // MARK: - Conversation
 
     // Split into named parts rather than one expression: the type checker gives up on
     // a stack this deep and reports only that it "cannot type-check in reasonable
@@ -351,7 +282,7 @@ struct PlaygroundView: View {
 
             Text("The conversation runs on the backend — ASR, LLM and TTS — and its speech "
                  + "arrives here as PCM over a WebSocket. That audio goes to controller.send(), "
-                 + "exactly like the pre-recorded clips do.")
+                 + "which accepts PCM16 from any source.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -359,8 +290,7 @@ struct PlaygroundView: View {
     }
 
     /// No ring here, unlike the Web client: on a phone the microphone is the only
-    /// control on screen once the realtime scene is open, so there is nothing for a
-    /// hint to disambiguate it from.
+    /// control in this panel, so there is nothing for a hint to disambiguate it from.
     private var micButton: some View {
         Button {
             Task { await viewModel.toggleMic() }

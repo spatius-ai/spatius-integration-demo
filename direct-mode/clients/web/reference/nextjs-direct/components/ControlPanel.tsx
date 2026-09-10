@@ -1,13 +1,9 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import type { MutableRefObject } from 'react'
+import { useCallback } from 'react'
 import type { AvatarController } from '@spatius/avatarkit'
 import type { AvatarInstance } from '@/hooks/useAvatarSDK'
-import type { Scene } from '@/types'
 import RealtimePanel from '@/components/RealtimePanel'
-import { PCM_ASSETS, AUDIO_SOURCE_HINT } from '@/data/audioAssets'
-import { loadPcmFile, sendPcmChunks } from '@/utils/audio'
 
 interface AvatarSlot {
   uid: string
@@ -90,21 +86,9 @@ interface Props {
   activeUid?: string | null
   onSlotSelect?: (uid: string) => void
   onNotify?: (text: string, kind?: 'error' | 'warning') => void
-  /** Where to register the stop-sending callback, so the on-stage controls can
-   *  interrupt a clip this panel started. */
-  cancelSendRef: MutableRefObject<(() => void) | null>
-  /** Which scene is open — it decides what drives the avatar below the status bar. */
-  scene: Scene
-  /** The realtime scene's conversation language, chosen on the config page. */
-  language: string
 }
 
-export default function ControlPanel({ activeAvatar, activeController, multiMode, avatarSlots, activeUid, onSlotSelect, onNotify, cancelSendRef, scene, language }: Props) {
-  // Track which clip is playing, not just that one is: swapping every button's
-  // label at once resizes them and reflows the panel, which stutters the canvas.
-  const [sendingPath, setSendingPath] = useState<string | null>(null)
-  const sending = sendingPath !== null
-
+export default function ControlPanel({ activeAvatar, activeController, multiMode, avatarSlots, activeUid, onSlotSelect, onNotify }: Props) {
   const connected = activeAvatar?.connectionState === 'connected'
   // Note the first clause: with no avatar at all, `activeAvatar?.view` is undefined
   // rather than null, so a `!== null` test passes and every control below turns on
@@ -121,44 +105,6 @@ export default function ControlPanel({ activeAvatar, activeController, multiMode
       onNotify?.(`Failed to connect: ${e?.message ?? e}`)
     }
   }, [activeController, onNotify])
-
-  const handleSendPcm = useCallback(async (path: string) => {
-    // Direct Mode has no session until start() runs, so audio sent now would be
-    // dropped silently. Say so instead of leaving a dead button.
-    if (!connected) {
-      onNotify?.('Please click Start to connect before sending audio.', 'warning')
-      return
-    }
-    if (!activeController || sending) return
-    setSendingPath(path)
-    try {
-      // The audio context is already warmed up by handleStart; doing it here
-      // again stalls the first frames of playback.
-      const data = await loadPcmFile(path)
-      // Wrapped so interrupting from the stage controls also clears this panel's
-      // "sending" state — otherwise the clip stops but its button stays on '...'.
-      const stop = sendPcmChunks(
-        data,
-        (chunk, end) => activeController.send(chunk.buffer as ArrayBuffer, end),
-        () => setSendingPath(null),
-      )
-      cancelSendRef.current = () => {
-        stop()
-        setSendingPath(null)
-      }
-    } catch (e: any) {
-      console.error('Send failed:', e)
-      onNotify?.(`Failed to send audio: ${e?.message ?? e}`)
-      setSendingPath(null)
-    }
-  }, [activeController, sending, connected, onNotify, cancelSendRef])
-
-  useEffect(() => {
-    if (!connected && cancelSendRef.current) {
-      cancelSendRef.current()
-      cancelSendRef.current = null
-    }
-  }, [connected, cancelSendRef])
 
   return (
     <div className="control-panel">
@@ -233,35 +179,14 @@ export default function ControlPanel({ activeAvatar, activeController, multiMode
         <p className="panel-hint">Load a character first</p>
       )}
 
-      {/* What drives the avatar, and the only thing that differs between the two
-          scenes: a list of clips to send, or a microphone whose replies come back
-          from the agent. Both end at controller.send(). */}
-      {hasAvatar && scene === 'realtime' && (
+      {/* What drives the avatar: a microphone whose replies come back from the
+          agent as PCM, handed straight to controller.send(). */}
+      {hasAvatar && (
         <RealtimePanel
           controller={activeController}
           connected={connected}
-          language={language}
           onNotify={onNotify}
         />
-      )}
-
-      {hasAvatar && scene !== 'realtime' && (
-        <div className="audio-list">
-          <h4>
-            Audio Files
-            <span className="audio-hint" title={AUDIO_SOURCE_HINT}>?</span>
-          </h4>
-          {PCM_ASSETS.map(a => (
-            <button
-              key={a.path}
-              className="secondary full-width audio-btn"
-              disabled={sending}
-              onClick={() => handleSendPcm(a.path)}
-            >
-              {sendingPath === a.path ? '...' : `▶ ${a.name}`}
-            </button>
-          ))}
-        </div>
       )}
 
       {/* Pause / resume / interrupt live over the avatar itself — they act on

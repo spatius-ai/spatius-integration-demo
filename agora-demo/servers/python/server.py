@@ -5,10 +5,9 @@ generates rides along encoded in the video stream, so **nothing streams through 
 server** — it only signs the credentials to join a channel and asks Agora to start the
 agent in it.
 
-That is the whole difference from the other two modes:
+That is the whole difference from Direct Mode:
 
     Direct    client ──audio──► Motion Server        (client holds the connection)
-    Backend   client ──mic───► server ──► Motion Server ──► client   (server does)
     Agora     client ◄────  Agora channel  ────► agent + avatar      (neither does)
 
 The conversation is hosted by Agora's Conversational AI Engine: ASR / LLM / TTS and
@@ -55,10 +54,8 @@ def _env(key: str, default: str = "") -> str:
     return (os.getenv(key, default) or "").strip()
 
 
-# RTC_SERVER_PORT, not SERVER_PORT: Backend Mode reads that name too, and an
-# exported SERVER_PORT in the shell would silently move both servers onto one port
-# — with each .env overruled, since the environment wins. The old name still works
-# so existing setups keep running.
+# RTC_SERVER_PORT is this server's port. The old name SERVER_PORT still works so
+# existing setups keep running.
 HTTP_PORT = int(
     os.getenv("RTC_SERVER_PORT") or os.getenv("SERVER_PORT") or "8790"
 )

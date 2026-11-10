@@ -13,7 +13,6 @@ credentials and asks ConvoAI to start the agent.
 
 ```
 Direct    client ──audio──►  Motion Server                    (client drives)
-Backend   client ──mic───►  server ──►  Motion Server         (server drives)
 Agora     client ◄────  Agora channel  ────►  agent + avatar  (neither does)
 ```
 

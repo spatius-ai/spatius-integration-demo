@@ -7,7 +7,6 @@ and asks Agora to start the agent in it.
 
 ```
 Direct    client ──audio──►  Motion Server                    (client drives)
-Backend   client ──mic───►  server ──►  Motion Server         (server drives)
 Agora     client ◄────  Agora channel  ────►  agent + avatar  (neither does)
 ```
 

@@ -5,9 +5,9 @@
 
 Minimal LiveKit example for `@spatius/avatarkit-rtc` (the [RTC Adapter](https://docs.spatius.ai/sdk-reference/web-sdk/rtc-adapter)) with `LiveKitProvider`. Validates the wiring end-to-end: token issuance, room connection, RTC Adapter + provider init, avatar load and render, and microphone publishing.
 
-This demo has **no agent, no Server SDK, no Motion Server producer**, so it does not produce remote audio or motion. The avatar loads and renders in its idle state; remote audio playback and motion-driven lip-sync only happen when a remote publisher (e.g. a LiveKit Agents worker, or a Backend Mode service publishing into the same room) is in the room.
+This demo has **no agent, no Server SDK, no Motion Server producer**, so it does not produce remote audio or motion. The avatar loads and renders in its idle state; remote audio playback and motion-driven lip-sync only happen when a remote publisher (e.g. a LiveKit Agents worker) is in the room.
 
-This is not the full Backend Mode + RTC transport voice-agent demo. The full pattern needs a service that, given a character / avatar identifier, both mints LiveKit tokens **and** publishes the avatar's audio + motion into the same room — that service is not packaged here. Use this example to validate adapter wiring; for an end-to-end voice-agent experience that does talk back, run [`livekit-agent-quickstart`](../livekit-agents-demo/livekit-agent-quickstart). Future provider examples (e.g. Agora) would sit as siblings under `platform-integrations/` (e.g. `platform-integrations/agora-room/`).
+This is not a full voice-agent demo. Use this example to validate adapter wiring; for an end-to-end voice-agent experience that does talk back, run [`livekit-agent-quickstart`](../livekit-agents-demo/livekit-agent-quickstart). Future provider examples (e.g. Agora) would sit as siblings under `platform-integrations/` (e.g. `platform-integrations/agora-room/`).
 
 ## Architecture
 

@@ -11,11 +11,6 @@ Direct Mode is for scenarios where **the client drives the avatar directly** —
 - You already have your own ASR/LLM/TTS infrastructure
 - You want to integrate AvatarKit into an existing app
 
-**Choose [Backend Mode](../backend-mode/) when:**
-- You want a turnkey server-side pipeline (backend handles ASR → LLM → TTS → Avatar)
-- You want to keep API keys and AI logic on the server
-- You need to support thin clients that only render
-
 ## Architecture
 
 ```mermaid

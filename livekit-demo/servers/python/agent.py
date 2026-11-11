@@ -5,7 +5,7 @@ The avatar joins the call itself. The agent runs here as a LiveKit worker, and
 the video stream's SEI, audio travels on an RTC track, and the client's SDK parses
 the motion out to render.
 
-Nothing streams through this server. Unlike Direct and Backend Mode, no audio or
+Nothing streams through this server. Unlike Direct Mode, no audio or
 motion passes through `server.py` at all — it only issues credentials and asks
 LiveKit to dispatch this worker into a room.
 

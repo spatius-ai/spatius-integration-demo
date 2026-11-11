@@ -12,7 +12,6 @@ server — it only issues room credentials and dispatches the agent.
 
 ```
 Direct    client ──audio──►  Motion Server                    (client drives)
-Backend   client ──mic───►  server ──►  Motion Server         (server drives)
 LiveKit   client ◄────  LiveKit room  ────►  agent + avatar   (neither does)
 ```
 

@@ -9,7 +9,7 @@ interface Props {
 }
 
 /**
- * The room, laid out like the other two modes: characters on the left, the avatar in
+ * The room, laid out like the Direct Mode demo: characters on the left, the avatar in
  * the middle, controls on the right.
  *
  * What differs is that there is nothing to send. Here the avatar is in the
@@ -214,8 +214,8 @@ export default function Room({ config }: Props) {
             </div>
           </div>
 
-          {/* Nothing over the avatar here. The other two modes put pause and
-              interrupt there because they drive playback; here the avatar is
+          {/* Nothing over the avatar here. The Direct Mode demo puts pause and
+              interrupt there because it drives playback; here the avatar is
               in the call and there is no local playback to act on — closing the
               microphone is the only control, and it lives in the panel. */}
         </div>
@@ -225,7 +225,7 @@ export default function Room({ config }: Props) {
         <div className="control-panel">
           <h3>Controls</h3>
 
-          {/* No status bar here. The other two modes list the SDK callbacks that
+          {/* No status bar here. The Direct Mode demo lists the SDK callbacks that
               report on driving the avatar; here nothing is driven from this
               page — the avatar is in the call — so there is nothing to report. */}
 

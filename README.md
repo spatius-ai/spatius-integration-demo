@@ -16,7 +16,7 @@
 ## Features
 
 - **Runnable examples** — Each demo is self-contained with clients, the required server-side piece, and `.env` config
-- **Multiple architectures** — Direct Mode, LiveKit Agents, and Backend Mode integration paths
+- **Multiple architectures** — Direct Mode, LiveKit Agents, and Agora Conversational AI integration paths
 - **Multi-provider backends** — Swap between OpenAI, Google Gemini, Deepgram, Cartesia, Azure, AWS, and more
 - **Cross-platform** — Web (React, Vue, Vanilla JS, Next.js), iOS, Android, and Flutter
 
@@ -64,26 +64,23 @@ avatar is in the call — and differ in where the conversation runs:
 | Mode | Who connects to Motion Server | Where the conversation runs |
 | --- | --- | --- |
 | [**Direct**](./direct-mode) | the client | your server (ASR / LLM / TTS over a WebSocket), the client drives the avatar |
-| [**Backend**](./backend-mode) | the server | your server, which also drives the avatar and relays audio + motion |
 | [**LiveKit**](./livekit-demo) | neither — the avatar joins the LiveKit room itself | a LiveKit agent on your machine |
 | [**Agora**](./agora-demo) | neither — the avatar joins the Agora channel itself | Agora's Conversational AI Engine |
 
-| Platform | Direct Mode | Backend Mode | LiveKit Demo | Agora Demo |
-| --- | --- | --- | --- | --- |
-| **Web** | [`direct-mode/clients/web/reference`](./direct-mode/clients/web/reference) — React, Vue, vanilla, Next.js | [`backend-mode/clients/web`](./backend-mode/clients/web) | [`livekit-demo/clients/web`](./livekit-demo/clients/web) | [`agora-demo/clients/web`](./agora-demo/clients/web) |
-| **iOS** | [`direct-mode/clients/ios`](./direct-mode/clients/ios) | [`backend-mode/clients/ios`](./backend-mode/clients/ios) | Web-only | [`agora-demo/clients/ios`](./agora-demo/clients/ios) |
-| **Android** | [`direct-mode/clients/android`](./direct-mode/clients/android) | [`backend-mode/clients/android`](./backend-mode/clients/android) | Web-only | [`agora-demo/clients/android`](./agora-demo/clients/android) |
-| **Flutter** | [`direct-mode/clients/flutter`](./direct-mode/clients/flutter) | [`backend-mode/clients/flutter`](./backend-mode/clients/flutter) | Web-only | Web-only |
+| Platform | Direct Mode | LiveKit Demo | Agora Demo |
+| --- | --- | --- | --- |
+| **Web** | [`direct-mode/clients/web/reference`](./direct-mode/clients/web/reference) — React, Vue, vanilla, Next.js | [`livekit-demo/clients/web`](./livekit-demo/clients/web) | [`agora-demo/clients/web`](./agora-demo/clients/web) |
+| **iOS** | [`direct-mode/clients/ios`](./direct-mode/clients/ios) | Web-only | [`agora-demo/clients/ios`](./agora-demo/clients/ios) |
+| **Android** | [`direct-mode/clients/android`](./direct-mode/clients/android) | Web-only | [`agora-demo/clients/android`](./agora-demo/clients/android) |
+| **Flutter** | [`direct-mode/clients/flutter`](./direct-mode/clients/flutter) | Web-only | Web-only |
 
 For LiveKit Agents specifically, see [`livekit-agent-quickstart`](./platform-integrations/livekit-agents-demo/livekit-agent-quickstart) and the [reference demo](./platform-integrations/livekit-agents-demo/livekit-agents-reference-demo).
 
-Transport options such as LiveKit, Agora, and your own WebSocket transport live inside the relevant integration docs. [`platform-integrations/livekit-room-demo`](./platform-integrations/livekit-room-demo) is the minimal LiveKit example for `@spatius/avatarkit-rtc` (the RTC Adapter) with `LiveKitProvider`: it validates token issuance, room connection, adapter init, avatar load, and mic publishing. Remote audio playback and motion rendering only happen when a producer publishes into the room — this demo has no agent or Backend Mode publisher. Not the full Backend Mode + RTC transport voice-agent demo.
+Transport options such as LiveKit and Agora live inside the relevant integration docs. [`platform-integrations/livekit-room-demo`](./platform-integrations/livekit-room-demo) is the minimal LiveKit example for `@spatius/avatarkit-rtc` (the RTC Adapter) with `LiveKitProvider`: it validates token issuance, room connection, adapter init, avatar load, and mic publishing. Remote audio playback and motion rendering only happen when a producer publishes into the room — this demo has no agent. For a full voice agent, use the LiveKit Agents demos above.
 
-### Direct Mode servers vs Backend Mode servers
+### What the Direct Mode server does
 
 Direct Mode clients connect to Motion Server directly, but they still need a short-lived Session Token. The server under `direct-mode/servers/python` keeps `SPATIUS_API_KEY` on the backend, mints Session Tokens, and runs the conversation (ASR / LLM / TTS) over a WebSocket — the client hands the assistant audio to the SDK itself. It never connects to Motion Server and never relays motion.
-
-Backend Mode servers are runtime servers. They own the ASR / LLM / TTS pipeline, use a Server SDK to connect to Motion Server, and deliver encoded audio + motion messages to clients.
 
 ## Quick Start
 
@@ -129,7 +126,7 @@ You will also need:
 
 - A **Spatius** account — [Create one in Studio](https://app.spatius.ai/)
 - A **LiveKit Cloud** account (or self-hosted) — [cloud.livekit.io](https://cloud.livekit.io/)
-- API keys for your chosen LLM / TTS / STT providers when you run agent or backend pipeline demos
+- API keys for your chosen LLM / TTS / STT providers when you run the agent demos
 
 ## Links
 

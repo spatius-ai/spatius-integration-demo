@@ -11,10 +11,9 @@ import Foundation
 /// SDK parses it out to drive rendering, and audio travels on an RTC audio track.
 ///
 ///     Direct    client ──audio──►  Motion Server            (client drives)
-///     Backend   client ──mic───►  server ──► Motion Server  (server drives)
 ///     Agora     client ◄──  Agora channel  ──► agent        (neither — it is in the call)
 ///
-/// So there is no `send()` and no `yieldAudioData()` here. Once connected, everything
+/// So there is no `send()` here. Once connected, everything
 /// arrives as a stream.
 @MainActor
 final class AvatarRtcSession: ObservableObject {

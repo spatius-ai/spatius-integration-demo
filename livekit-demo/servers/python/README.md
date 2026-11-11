@@ -7,7 +7,6 @@ and gets the agent into it.
 
 ```
 Direct    client ──audio──►  Motion Server                    (client drives)
-Backend   client ──mic───►  server ──►  Motion Server         (server drives)
 LiveKit   client ◄────  LiveKit room  ────►  agent + avatar   (neither does)
 ```
 
@@ -17,17 +16,13 @@ need are Spatius and LiveKit. For the same demo with the conversation hosted by 
 Conversational AI Engine — no worker, models configured in a console — see
 [`../../../agora-demo`](../../../agora-demo).
 
-**This is the only path with an RTC transport at all.** It is worth being explicit,
-because "which RTC stack" is a question the other two modes never ask:
+**Unlike Direct Mode, this path has an RTC transport.** It is worth being explicit,
+because "which RTC stack" is a question Direct Mode never asks:
 
 | Mode | RTC | What the client links |
 |---|---|---|
 | Direct | none — the client holds the Motion Server connection | AvatarKit |
-| Backend | none — LiveKit is used as an ASR/LLM/TTS pipeline with **no room** | AvatarKit |
 | LiveKit demo | the avatar joins a real room | AvatarKit + LiveKit |
-
-So Backend Mode's LiveKit credentials are not the same thing as these: that path never
-opens a room, and its clients never link an RTC SDK.
 
 ## Setup
 

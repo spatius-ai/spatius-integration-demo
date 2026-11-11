@@ -112,9 +112,7 @@ class AvatarViewModel extends ChangeNotifier {
       // Direct Mode drives from here: what the agent returns is plain PCM, fed to
       // the controller exactly as any other PCM16 source would be.
       onAudio: (pcm) async {
-        // send(), not yieldAudioData(): that one is Backend Mode's, for audio the
-        // server has already driven. Direct Mode drives from here, so the agent's
-        // reply goes through send() like any other PCM16 source — `end` stays
+        // The agent's reply goes through send() like any other PCM16 source — `end` stays
         // false, since a turn is many of these and turn_end closes it.
         // Not awaited, and not chained behind the previous chunk: Dart runs this
         // isolate's callbacks one at a time, so the calls reach the platform channel

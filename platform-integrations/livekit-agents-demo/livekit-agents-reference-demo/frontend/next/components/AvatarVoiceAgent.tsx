@@ -194,7 +194,7 @@ export default function AvatarVoiceAgent({
       if (!AvatarSDK.configuration) {
         // No region: the SDK picks the closest serving region itself.
         await AvatarSDK.initialize(config.appId, {
-          drivingServiceMode: DrivingServiceMode.backend,
+          drivingServiceMode: DrivingServiceMode.rtc,
         });
       }
 
